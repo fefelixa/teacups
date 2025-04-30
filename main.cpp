@@ -39,10 +39,6 @@ COBJLoader objLoader; // this object is used to load the 3d models.
 glm::mat4 ProjectionMatrix; // matrix for the orthographic projection
 glm::mat4 ModelViewMatrix;	// matrix for the modelling and viewing
 
-glm::mat4 objectRotation;
-glm::vec3 translation = glm::vec3(0.0, 0.0, 0.0);
-glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f); // vector for the position of the object.
-
 // Material properties
 float Material_Ambient[4] = {0.3f, 0.3f, 0.3f, 1.0f};
 float Material_Diffuse[4] = {0.8f, 0.8f, 0.5f, 1.0f};
@@ -81,7 +77,6 @@ void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
 void processKeys();					 // called in winmain to process keyboard input
 void idle();						 // idle function
-void updateTransform(float xinc, float yinc, float zinc);
 
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
@@ -110,27 +105,26 @@ void display()
 	static float angle1 = 0.0f,
 				 angle2 = 0.0f,
 				 angle3 = 0.0f;
-	//angle1 += 0.0002f; // cup rotation
-	//angle2 += 0.0002f; // small plate rotation
-	//angle3 += 0.0002f; // big plate rotation
+	angle1 += 0.0002f; // cup rotation
+	angle2 += 0.0002f; // small plate rotation
+	angle3 += 0.0002f; // big plate rotation
 
 	// use of glm::lookAt for viewing instead.
 	switch (cameraMode)
 	{
-	case 0:
+	case 0: // free cam
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.y, glm::vec3(1, 0, 0));
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.x, glm::vec3(0, 1, 0));
-		viewingMatrix = glm::translate(viewingMatrix, freeCamPos); // standard free cam
+		viewingMatrix = glm::translate(viewingMatrix, freeCamPos); 
 		break;
-	case 1:
-		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 20.0f, -50.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
+	case 1: // view from the ground
+		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 5.0f, -70.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
 		break;
-	case 2:
+	case 2: // view from the ride
 		glm::vec3 cam2pos = -cups[0][0].pos.toGlm();
 		cam2pos.y -= 3.0f; // elevate camera slightly out of teacup
 		viewingMatrix = glm::rotate(viewingMatrix, -angle1 - angle2 - angle3, glm::vec3(0, 1, 0));
 		viewingMatrix = glm::translate(viewingMatrix, cam2pos);
-
 		break;
 	default:
 		cameraMode = 0;
@@ -195,7 +189,7 @@ void display()
 
 	// cups[0][0].DrawAllBoxesForOctreeNodes(myBasicShader);
 	//	cups[0][0].CalcBoundingBox()
-	cups[0][0].DrawBoundingBox(myBasicShader);
+	//cups[0][0].DrawBoundingBox(myBasicShader);
 	// model.DrawOctreeLeaves(myBasicShader);
 
 	// switch back to the shader for textures and lighting on the objects.
@@ -248,9 +242,7 @@ void init()
 
 	glEnable(GL_TEXTURE_2D);
 
-	// lets initialise our object's rotation transformation
-	// to the identity matrix
-	objectRotation = glm::mat4(1.0f);
+	
 	std::string modelFolder = "MyModels/teacups/nh/";
 	char teacupDir[33];
 	cout << " loading model " << endl;
@@ -471,12 +463,6 @@ void processKeys()
 	// updateTransform(spinXinc, spinYinc, spinZinc);
 }
 
-void updateTransform(float xinc, float yinc, float zinc)
-{
-	objectRotation = glm::rotate(objectRotation, xinc, glm::vec3(1, 0, 0));
-	objectRotation = glm::rotate(objectRotation, yinc, glm::vec3(0, 1, 0));
-	objectRotation = glm::rotate(objectRotation, zinc, glm::vec3(0, 0, 1));
-}
 
 void idle()
 {
