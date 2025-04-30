@@ -8,6 +8,10 @@ in vec3 ex_LightDir;  //light direction arriving from the vertex
 
 in vec3 ex_PositionEye;
 
+uniform float attC1; //constant attenuation
+uniform float attC2;//linear attenuation
+uniform float attC3;//quadratic attenuation
+
 uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
 uniform vec4 light_specular;
@@ -30,10 +34,12 @@ void main(void)
 	//Calculate lighting
 	vec3 n, L;
 	vec4 color;
-	float NdotL;
+	float NdotL, dist, att;
 	
+	dist = length(ex_LightDir-ex_PositionEye);
+
 	n = normalize(ex_Normal);
-	L = normalize(ex_LightDir);
+	L = normalize(ex_LightDir - ex_PositionEye);
 
 	vec3 v = normalize(-ex_PositionEye);
 	vec3 r = normalize(-reflect(L, n));
@@ -46,9 +52,14 @@ void main(void)
 	
 	if(NdotL > 0.0) 
 	{
+		att = min(1.0/(attC1 + 
+			attC2 * dist +
+			attC3 *dist*dist), 1);
+	
 //		color += (light_ambient * material_diffuse * NdotL);
-		color += light_diffuse * material_diffuse * NdotL;
+		color += (light_diffuse * material_diffuse * NdotL);
 		color += light_specular * material_specular * pow(RdotV, material_shininess);
+		color *= att;
 	}
 
 //	color += material_specular * light_specular * pow(RdotV, material_shininess);

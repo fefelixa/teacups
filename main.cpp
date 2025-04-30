@@ -40,15 +40,15 @@ glm::mat4 ProjectionMatrix; // matrix for the orthographic projection
 glm::mat4 ModelViewMatrix;	// matrix for the modelling and viewing
 
 // Material properties
-float Material_Ambient[4] = {0.3f, 0.3f, 0.3f, 1.0f};
+float Material_Ambient[4] = {0.6f, 0.6f, 0.6f, 1.0f};
 float Material_Diffuse[4] = {0.8f, 0.8f, 0.5f, 1.0f};
 float Material_Specular[4] = {0.9f, 0.9f, 0.8f, 1.0f};
 float Material_Shininess = 50;
 
 // Light Properties
-float Light_Ambient_And_Diffuse[4] = {0.8f, 0.8f, 0.6f, 1.0f};
-float Light_Specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-float LightPos[4] = {0.0f, 10.0f, 0.0f, 0.0f};
+float Light_Ambient_And_Diffuse[4] = {0.6f, 0.6f, 0.6f, 1.0f};
+float Light_Specular[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+float LightPos[4] = {0.0f, 0.1f, 0.0f, 0.0f};
 
 int mouse_x = 0, mouse_y = 0;
 bool LeftPressed = false;
@@ -155,6 +155,7 @@ void display()
 	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 
 	floorPlane.DrawElementsUsingVBO(myShader);
+
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
