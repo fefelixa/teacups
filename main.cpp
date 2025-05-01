@@ -430,12 +430,12 @@ void moveCamera(float x, float y, float z)
 	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x);
 
 	dy = y * cos(freeCamAngle.y) + z * sin(freeCamAngle.y);
-
-	//dz = x * sin(freeCamAngle.x) + (z * cos(freeCamAngle.x)) * (z * cos(freeCamAngle.y)) - y * sin(freeCamAngle.y);
+	
+	dz = x * sin(freeCamAngle.x) + ((z * cos(freeCamAngle.x)) * (z * cos(freeCamAngle.y))) - y * sin(freeCamAngle.y);
 
 	freeCamPos.x += dx;
 	freeCamPos.y += dy;
-	//freeCamPos.z += dz;
+	freeCamPos.z += dz;
 }
 
 void processKeys()
