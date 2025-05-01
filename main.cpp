@@ -61,7 +61,8 @@ bool Up = false;
 bool Down = false;
 bool Home = false;
 bool End = false;
-bool keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW;
+bool keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc;
+bool debug1 = false;
 
 float spin = 180;
 float speed = 0;
@@ -77,6 +78,7 @@ void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
 void processKeys();					 // called in winmain to process keyboard input
 void idle();						 // idle function
+void closeGlut();
 
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
@@ -113,11 +115,13 @@ void display()
 	switch (cameraMode)
 	{
 	case 0: // free cam
+
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.y, glm::vec3(1, 0, 0));
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.x, glm::vec3(0, 1, 0));
-		viewingMatrix = glm::translate(viewingMatrix, freeCamPos); 
+		/*viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.z, glm::vec3(0, 0, 1));*/
+		viewingMatrix = glm::translate(viewingMatrix, freeCamPos);
 		break;
-	case 1: // view from the ground
+	case 1:																												// view from the ground
 		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 5.0f, -70.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
 		break;
 	case 2: // view from the ride
@@ -190,7 +194,7 @@ void display()
 
 	// cups[0][0].DrawAllBoxesForOctreeNodes(myBasicShader);
 	//	cups[0][0].CalcBoundingBox()
-	//cups[0][0].DrawBoundingBox(myBasicShader);
+	// cups[0][0].DrawBoundingBox(myBasicShader);
 	// model.DrawOctreeLeaves(myBasicShader);
 
 	// switch back to the shader for textures and lighting on the objects.
@@ -243,7 +247,6 @@ void init()
 
 	glEnable(GL_TEXTURE_2D);
 
-	
 	std::string modelFolder = "MyModels/teacups/nh/";
 	char teacupDir[33];
 	cout << " loading model " << endl;
@@ -300,6 +303,9 @@ void special(int key, int x, int y)
 	case GLUT_KEY_END:
 		End = true;
 		break;
+	case 27:
+		keyEsc = true;
+		break;
 	}
 }
 
@@ -324,6 +330,9 @@ void specialUp(int key, int x, int y)
 		break;
 	case GLUT_KEY_END:
 		End = false;
+		break;
+	case 27:
+		keyEsc = false;
 		break;
 	}
 }
@@ -361,6 +370,13 @@ void keyDown(unsigned char key, int x, int y)
 	case '3':
 		key3 = true;
 		break;
+	case ' ':
+		keySpace = true;
+		break;
+
+	case 27:
+		keyEsc = true;
+		break;
 	}
 }
 
@@ -394,13 +410,40 @@ void keyUp(unsigned char key, int x, int y)
 	case '2':
 		key2 = false;
 		break;
+	case '3':
+		key3 = false;
+		break;
+	case ' ':
+		keySpace = false;
+		debug1 = false;
+		break;
+	case 27:
+		keyEsc = false;
+		break;
 	}
+}
+
+void moveCamera(float x, float y, float z)
+{
+	float dx, dy, dz;
+
+	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x);
+
+	dy = y * cos(freeCamAngle.y) + z * sin(freeCamAngle.y);
+
+	//dz = x * sin(freeCamAngle.x) + (z * cos(freeCamAngle.x)) * (z * cos(freeCamAngle.y)) - y * sin(freeCamAngle.y);
+
+	freeCamPos.x += dx;
+	freeCamPos.y += dy;
+	//freeCamPos.z += dz;
 }
 
 void processKeys()
 {
+
 	float camRoteSpeed = 0.0003f;
 	float camMoveSpeed = 0.01f;
+
 	// float spinXinc = 0.0f, spinYinc = 0.0f, spinZinc = 0.0f;
 	if (Left)
 	{
@@ -414,43 +457,49 @@ void processKeys()
 	}
 	if (Up)
 	{
-		freeCamAngle.y -= camRoteSpeed;
+		if (freeCamAngle.y > -PI / 2.0f)
+			freeCamAngle.y -= camRoteSpeed;
 		// spinXinc = 0.001f;
 	}
 	if (Down)
 	{
-		freeCamAngle.y += camRoteSpeed;
+		if (freeCamAngle.y < PI / 2.0f)
+			freeCamAngle.y += camRoteSpeed;
 		// spinXinc = -0.001f;
 	}
-	if (keyW)
+	if (Home)
 	{
-		freeCamPos.y -= camMoveSpeed;
+		moveCamera(0, -camMoveSpeed, 0);
 	}
 	if (keyA)
 	{
-		freeCamPos.x += camMoveSpeed;
+		moveCamera(camMoveSpeed, 0, 0);
 	}
-	if (keyS)
+	if (End)
 	{
-		freeCamPos.y += camMoveSpeed;
+		moveCamera(0, camMoveSpeed, 0);
 	}
 	if (keyD)
 	{
-		freeCamPos.x -= camMoveSpeed;
+		moveCamera(-camMoveSpeed, 0, 0);
 	}
-	if (Home) {
-		freeCamPos.z += camMoveSpeed;
+	if (keyW)
+	{
+		moveCamera(0, 0, camMoveSpeed);
 	}
-	if (End) {
-		freeCamPos.z -= camMoveSpeed;
+	if (keyS)
+	{
+		moveCamera(0, 0, -camMoveSpeed);
 	}
 
-	if (keyQ)
+	if (keyEsc)
 	{
-		glutExit();
+		glutLeaveMainLoop();
 	}
 	if (key0)
 	{
+		freeCamPos = glm::vec3(0.0f, -10.0f, -50.0f);
+		freeCamAngle = glm::vec3(0);
 		cameraMode = 0;
 	}
 	if (key1)
@@ -461,9 +510,14 @@ void processKeys()
 	{
 		cameraMode = 2;
 	}
+	if (keySpace && !debug1)
+	{
+		cout << "angles" << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
+		cout << "position" << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl;
+		debug1 = true;
+	}
 	// updateTransform(spinXinc, spinYinc, spinZinc);
 }
-
 
 void idle()
 {
@@ -474,6 +528,9 @@ void idle()
 	processKeys();
 
 	glutPostRedisplay();
+}
+void closeGlut()
+{
 }
 /**************** END OPENGL FUNCTIONS *************************/
 
@@ -512,7 +569,7 @@ int main(int argc, char **argv)
 	glutKeyboardUpFunc(keyUp);
 
 	glutIdleFunc(idle);
-
+	glutCloseFunc(closeGlut);
 	// starts the main loop. Program loops and calls callback functions as appropriate.
 	glutMainLoop();
 

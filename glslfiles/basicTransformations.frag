@@ -9,8 +9,8 @@ in vec3 ex_LightDir;  //light direction arriving from the vertex
 in vec3 ex_PositionEye;
 
 uniform float attC1; //constant attenuation
-uniform float attC2;//linear attenuation
-uniform float attC3;//quadratic attenuation
+uniform float attC2; //linear attenuation
+uniform float attC3; //quadratic attenuation
 
 uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
