@@ -66,8 +66,9 @@ bool debug1 = false;
 
 float spin = 180;
 float speed = 0;
-glm::vec3 freeCamPos = glm::vec3(0.0f, -10.0f, -50.0f);
+glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
 glm::vec3 freeCamAngle = glm::vec3(0);
+glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 bool lookAt;
 glm::vec3 lookAtPos = glm::vec3(0.0f);
 int cameraMode = 0;
@@ -120,6 +121,8 @@ void display()
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.x, glm::vec3(0, 1, 0));
 		/*viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.z, glm::vec3(0, 0, 1));*/
 		viewingMatrix = glm::translate(viewingMatrix, freeCamPos);
+
+		viewingMatrix = glm::lookAt(freeCamPos, freeCamPos + freeCamFront, glm::vec3(0, 1.0f, 0));
 		break;
 	case 1:																												// view from the ground
 		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 5.0f, -70.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
@@ -424,48 +427,70 @@ void keyUp(unsigned char key, int x, int y)
 }
 
 void moveCamera(float x, float y, float z)
-{
+{/*
 	float dx, dy, dz;
 
-	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x);
+	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x) + y * sin(freeCamAngle.x * freeCamAngle.y);
 
 	dy = y * cos(freeCamAngle.y) + z * sin(freeCamAngle.y);
 	
-	dz = x * sin(freeCamAngle.x) + ((z * cos(freeCamAngle.x)) * (z * cos(freeCamAngle.y))) - y * sin(freeCamAngle.y);
+	dz = x * sin(freeCamAngle.x) + z * cos(freeCamAngle.x) - y*sin(freeCamAngle.y);
 
 	freeCamPos.x += dx;
 	freeCamPos.y += dy;
-	freeCamPos.z += dz;
+	freeCamPos.z += dz;*/
+
+	if (x != 0) {
+		freeCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * x;
+	}
+	if (y != 0) {
+		//
+	}
+	if (z != 0) {
+		freeCamPos += z * freeCamFront;
+	}
+}
+
+void rotateCamera(float pitch, float yaw) {
+
+	freeCamAngle.x += pitch; // up and down
+	freeCamAngle.y += yaw; // left and right
+
+	//dont break your neck - limit pitch to 180°
+	pitch = min(pitch, (float)PI / 2);
+	pitch = max(pitch, -(float)PI / 2);
+
+	glm::vec3 newCamFront;
+	newCamFront.x = cos(freeCamAngle.y) * cos(freeCamAngle.x);
+	newCamFront.y = sin(freeCamAngle.x);
+	newCamFront.z = sin(freeCamAngle.y) * cos(freeCamAngle.x);
+
+	
+
+	freeCamFront = glm::normalize(newCamFront);
 }
 
 void processKeys()
 {
-
 	float camRoteSpeed = 0.0003f;
 	float camMoveSpeed = 0.01f;
 
-	// float spinXinc = 0.0f, spinYinc = 0.0f, spinZinc = 0.0f;
 	if (Left)
 	{
-		freeCamAngle.x -= camRoteSpeed;
-		// spinYinc = -0.001f;
+		rotateCamera(0, -camRoteSpeed);
 	}
 	if (Right)
 	{
-		freeCamAngle.x += camRoteSpeed;
-		// spinYinc = 0.001f;
+		rotateCamera(0, camRoteSpeed);
+
 	}
 	if (Up)
 	{
-		if (freeCamAngle.y > -PI / 2.0f)
-			freeCamAngle.y -= camRoteSpeed;
-		// spinXinc = 0.001f;
+		rotateCamera(camRoteSpeed, 0);
 	}
 	if (Down)
 	{
-		if (freeCamAngle.y < PI / 2.0f)
-			freeCamAngle.y += camRoteSpeed;
-		// spinXinc = -0.001f;
+		rotateCamera(-camRoteSpeed, 0);
 	}
 	if (Home)
 	{
@@ -473,7 +498,8 @@ void processKeys()
 	}
 	if (keyA)
 	{
-		moveCamera(camMoveSpeed, 0, 0);
+		moveCamera(-camMoveSpeed, 0, 0);
+		
 	}
 	if (End)
 	{
@@ -481,11 +507,13 @@ void processKeys()
 	}
 	if (keyD)
 	{
-		moveCamera(-camMoveSpeed, 0, 0);
+		moveCamera(camMoveSpeed, 0, 0);
+
 	}
 	if (keyW)
 	{
 		moveCamera(0, 0, camMoveSpeed);
+		
 	}
 	if (keyS)
 	{
@@ -512,15 +540,17 @@ void processKeys()
 	}
 	if (keySpace && !debug1)
 	{
-		cout << "angles" << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
-		cout << "position" << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl;
+		cout << "angles " << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
+		cout << "position " << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl <<endl;
 		debug1 = true;
 	}
+	
 	// updateTransform(spinXinc, spinYinc, spinZinc);
 }
 
 void idle()
 {
+	
 	spin += speed;
 	if (spin > 360)
 		spin = 0;
@@ -569,7 +599,7 @@ int main(int argc, char **argv)
 	glutKeyboardUpFunc(keyUp);
 
 	glutIdleFunc(idle);
-	glutCloseFunc(closeGlut);
+
 	// starts the main loop. Program loops and calls callback functions as appropriate.
 	glutMainLoop();
 
