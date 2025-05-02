@@ -67,12 +67,15 @@ bool debug1 = false;
 
 float spin = 180;
 float speed = 0;
+
 glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
 glm::vec3 freeCamAngle = glm::vec3(0, -PI/2, 0);
 glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
-bool lookAt;
 glm::vec3 lookAtPos = glm::vec3(0.0f);
+bool lookAt;
 int cameraMode = 0;
+float fov = 60.0f;
+float targetFov = 60.0f;
 
 // OPENGL FUNCTION PROTOTYPES
 void display();						 // called in winmain to draw everything to the screen
@@ -88,6 +91,15 @@ void closeGlut();
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
 {
+	if (targetFov > fov) {
+		fov += 0.01f;
+		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	}
+	if (targetFov < fov) {
+		fov -= 0.01f;
+		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	}
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(myShader->GetProgramObjID()); // use the shader
@@ -227,7 +239,7 @@ void reshape(int width, int height) // Resize the OpenGL window
 	glViewport(0, 0, width, height); // Reset The Current Viewport
 
 	// Set the projection matrix
-	ProjectionMatrix = glm::perspective(glm::radians(60.0f), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
 }
 void init()
 {
@@ -432,10 +444,24 @@ void keyUp(unsigned char key, int x, int y)
 }
 
 void mouse(int btn, int state, int x, int y ) {
-	if (x != mouse_x)
-		cout << "mouse dx: " << x - mouse_x << " mouse x: " << x << endl;
-	if (y != mouse_y)
-		cout << "mouse dy: " << y - mouse_y << " mouse y: " << y << endl;
+	cout << "mouse";
+	if (btn == 3) { // zoom in - decrease fov
+		targetFov = max(15.0f, targetFov - 0.5f);
+		cout << "fov: " << targetFov << endl;
+		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+
+	}
+	else if (btn == 4) { // zoom out - increase fov
+		targetFov = min(90.0f, targetFov + 0.5f);
+		cout << "fov: " << targetFov << endl;
+		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+
+	}
+	else if (btn == 1) {
+		targetFov = 60;
+		cout << "fov: " << targetFov << endl;
+	}
+
 }
 
 void moveCamera(float dx, float dy, float dz)
@@ -460,14 +486,19 @@ void moveCamera(float dx, float dy, float dz)
 	}
 }
 
-void rotateCamera(float pitch, float yaw) {
+void rotateCamera(float dpitch, float dyaw) {
 
-	freeCamAngle.x += pitch; // up and down
-	freeCamAngle.y += yaw; // left and right
+	float newPitch =  freeCamAngle.x + dpitch; // up and down
+	float newYaw =  freeCamAngle.y + dyaw; // left and right
 
 	//dont break your neck - limit pitch to 180°
-	pitch = min(pitch, (float)PI / 2);
-	pitch = max(pitch, -(float)PI / 2);
+	//freeCamAngle.x = min(freeCamAngle.x, (float)PI / 2);
+	//freeCamAngle.x = max(freeCamAngle.x, -(float)PI / 2);
+	if (abs(newPitch) < PI / 2)
+		freeCamAngle.x = newPitch;
+	freeCamAngle.y = newYaw;
+
+	
 
 	glm::vec3 newCamFront;
 	newCamFront.x = cos(freeCamAngle.y) * cos(freeCamAngle.x);
