@@ -29,6 +29,7 @@ x86/
 bld/
 [Bb]in/
 [Oo]bj/
+!Obj/OBJLoader.*
 [Ll]og/
 [Ll]ogs/
 
@@ -400,3 +401,5 @@ FodyWeavers.xsd
 *.sln.iml
 
 *.DS_Store
+
+Freeglutexample/

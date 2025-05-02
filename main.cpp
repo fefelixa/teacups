@@ -14,6 +14,7 @@ using namespace std;
 
 #include "GL\freeglut.h"
 
+
 #include "Images\FreeImage.h"
 
 #include "shaders\Shader.h"
@@ -61,12 +62,14 @@ bool Up = false;
 bool Down = false;
 bool Home = false;
 bool End = false;
-bool keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW;
+bool keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc;
+bool debug1 = false;
 
 float spin = 180;
 float speed = 0;
-glm::vec3 freeCamPos = glm::vec3(0.0f, -10.0f, -50.0f);
-glm::vec3 freeCamAngle = glm::vec3(0);
+glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
+glm::vec3 freeCamAngle = glm::vec3(0, -PI/2, 0);
+glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 bool lookAt;
 glm::vec3 lookAtPos = glm::vec3(0.0f);
 int cameraMode = 0;
@@ -75,8 +78,12 @@ int cameraMode = 0;
 void display();						 // called in winmain to draw everything to the screen
 void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
+void rotateCamera(float pitch, float yaw); 
+void moveCamera(float dx, float dy, float dz);
 void processKeys();					 // called in winmain to process keyboard input
+void mouse(int btn, int state, int x, int y); // mouse function
 void idle();						 // idle function
+void closeGlut();
 
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
@@ -113,11 +120,15 @@ void display()
 	switch (cameraMode)
 	{
 	case 0: // free cam
+
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.y, glm::vec3(1, 0, 0));
 		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.x, glm::vec3(0, 1, 0));
-		viewingMatrix = glm::translate(viewingMatrix, freeCamPos); 
+		/*viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.z, glm::vec3(0, 0, 1));*/
+		viewingMatrix = glm::translate(viewingMatrix, freeCamPos);
+
+		viewingMatrix = glm::lookAt(freeCamPos, freeCamPos + freeCamFront, glm::vec3(0, 1.0f, 0));
 		break;
-	case 1: // view from the ground
+	case 1:																												// view from the ground
 		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 5.0f, -70.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
 		break;
 	case 2: // view from the ride
@@ -190,7 +201,7 @@ void display()
 
 	// cups[0][0].DrawAllBoxesForOctreeNodes(myBasicShader);
 	//	cups[0][0].CalcBoundingBox()
-	//cups[0][0].DrawBoundingBox(myBasicShader);
+	// cups[0][0].DrawBoundingBox(myBasicShader);
 	// model.DrawOctreeLeaves(myBasicShader);
 
 	// switch back to the shader for textures and lighting on the objects.
@@ -221,8 +232,8 @@ void reshape(int width, int height) // Resize the OpenGL window
 void init()
 {
 	glClearColor(1.0, 1.0, 1.0, 0.0); // sets the clear colour to yellow
-									  // glClear(GL_COLOR_BUFFER_BIT) in the display function
-									  // will clear the buffer to this colour
+	// glClear(GL_COLOR_BUFFER_BIT) in the display function
+	// will clear the buffer to this colour
 	glEnable(GL_DEPTH_TEST);
 	// glEnable(GL_CULL_FACE);
 
@@ -243,7 +254,6 @@ void init()
 
 	glEnable(GL_TEXTURE_2D);
 
-	
 	std::string modelFolder = "MyModels/teacups/nh/";
 	char teacupDir[33];
 	cout << " loading model " << endl;
@@ -276,6 +286,7 @@ void init()
 		floorPlane.ConstructModelFromOBJLoader(objLoader);
 		floorPlane.InitVBO(myShader);
 	}
+
 }
 
 void special(int key, int x, int y)
@@ -299,6 +310,9 @@ void special(int key, int x, int y)
 		break;
 	case GLUT_KEY_END:
 		End = true;
+		break;
+	case 27:
+		keyEsc = true;
 		break;
 	}
 }
@@ -324,6 +338,9 @@ void specialUp(int key, int x, int y)
 		break;
 	case GLUT_KEY_END:
 		End = false;
+		break;
+	case 27:
+		keyEsc = false;
 		break;
 	}
 }
@@ -361,6 +378,13 @@ void keyDown(unsigned char key, int x, int y)
 	case '3':
 		key3 = true;
 		break;
+	case ' ':
+		keySpace = true;
+		break;
+
+	case 27:
+		keyEsc = true;
+		break;
 	}
 }
 
@@ -394,63 +418,118 @@ void keyUp(unsigned char key, int x, int y)
 	case '2':
 		key2 = false;
 		break;
+	case '3':
+		key3 = false;
+		break;
+	case ' ':
+		keySpace = false;
+		debug1 = false;
+		break;
+	case 27:
+		keyEsc = false;
+		break;
 	}
+}
+
+void mouse(int btn, int state, int x, int y ) {
+	if (x != mouse_x)
+		cout << "mouse dx: " << x - mouse_x << " mouse x: " << x << endl;
+	if (y != mouse_y)
+		cout << "mouse dy: " << y - mouse_y << " mouse y: " << y << endl;
+}
+
+void moveCamera(float dx, float dy, float dz)
+{/*
+	float dx, dy, dz;
+
+	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x) + y * sin(freeCamAngle.x * freeCamAngle.y);
+
+	dy = y * cos(freeCamAngle.y) + z * sin(freeCamAngle.y);
+	
+	dz = x * sin(freeCamAngle.x) + z * cos(freeCamAngle.x) - y*sin(freeCamAngle.y);
+
+	freeCamPos.x += dx;
+	freeCamPos.y += dy;
+	freeCamPos.z += dz;*/
+
+	if (dx != 0) {
+		freeCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * dx;
+	}
+	if (dz != 0) {
+		freeCamPos += dz * freeCamFront;
+	}
+}
+
+void rotateCamera(float pitch, float yaw) {
+
+	freeCamAngle.x += pitch; // up and down
+	freeCamAngle.y += yaw; // left and right
+
+	//dont break your neck - limit pitch to 180°
+	pitch = min(pitch, (float)PI / 2);
+	pitch = max(pitch, -(float)PI / 2);
+
+	glm::vec3 newCamFront;
+	newCamFront.x = cos(freeCamAngle.y) * cos(freeCamAngle.x);
+	newCamFront.y = sin(freeCamAngle.x);
+	newCamFront.z = sin(freeCamAngle.y) * cos(freeCamAngle.x);
+
+	
+
+	freeCamFront = glm::normalize(newCamFront);
 }
 
 void processKeys()
 {
 	float camRoteSpeed = 0.0003f;
 	float camMoveSpeed = 0.01f;
-	// float spinXinc = 0.0f, spinYinc = 0.0f, spinZinc = 0.0f;
+
 	if (Left)
 	{
-		freeCamAngle.x -= camRoteSpeed;
-		// spinYinc = -0.001f;
+		rotateCamera(0, -camRoteSpeed);
 	}
 	if (Right)
 	{
-		freeCamAngle.x += camRoteSpeed;
-		// spinYinc = 0.001f;
+		rotateCamera(0, camRoteSpeed);
+
 	}
 	if (Up)
 	{
-		freeCamAngle.y -= camRoteSpeed;
-		// spinXinc = 0.001f;
+		rotateCamera(camRoteSpeed, 0);
 	}
 	if (Down)
 	{
-		freeCamAngle.y += camRoteSpeed;
-		// spinXinc = -0.001f;
-	}
-	if (keyW)
-	{
-		freeCamPos.y -= camMoveSpeed;
+		rotateCamera(-camRoteSpeed, 0);
+	
 	}
 	if (keyA)
 	{
-		freeCamPos.x += camMoveSpeed;
-	}
-	if (keyS)
-	{
-		freeCamPos.y += camMoveSpeed;
+		moveCamera(-camMoveSpeed, 0, 0);
+		
 	}
 	if (keyD)
 	{
-		freeCamPos.x -= camMoveSpeed;
+		moveCamera(camMoveSpeed, 0, 0);
+
 	}
-	if (Home) {
-		freeCamPos.z += camMoveSpeed;
+	if (keyW)
+	{
+		moveCamera(0, 0, camMoveSpeed);
+		
 	}
-	if (End) {
-		freeCamPos.z -= camMoveSpeed;
+	if (keyS)
+	{
+		moveCamera(0, 0, -camMoveSpeed);
 	}
 
-	if (keyQ)
+	if (keyEsc)
 	{
-		glutExit();
+		glutLeaveMainLoop();
 	}
 	if (key0)
 	{
+		freeCamPos = glm::vec3(0.0f, -10.0f, -50.0f);
+		freeCamAngle = glm::vec3(0);
 		cameraMode = 0;
 	}
 	if (key1)
@@ -461,12 +540,19 @@ void processKeys()
 	{
 		cameraMode = 2;
 	}
+	if (keySpace && !debug1)
+	{
+		cout << "angles " << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
+		cout << "position " << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl <<endl;
+		debug1 = true;
+	}
+	
 	// updateTransform(spinXinc, spinYinc, spinZinc);
 }
 
-
 void idle()
 {
+	
 	spin += speed;
 	if (spin > 360)
 		spin = 0;
@@ -474,6 +560,9 @@ void idle()
 	processKeys();
 
 	glutPostRedisplay();
+}
+void closeGlut()
+{
 }
 /**************** END OPENGL FUNCTIONS *************************/
 
@@ -510,7 +599,7 @@ int main(int argc, char **argv)
 	glutSpecialUpFunc(specialUp);
 	glutKeyboardFunc(keyDown);
 	glutKeyboardUpFunc(keyUp);
-
+	glutMouseFunc(mouse);
 	glutIdleFunc(idle);
 
 	// starts the main loop. Program loops and calls callback functions as appropriate.
