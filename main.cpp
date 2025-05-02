@@ -67,7 +67,7 @@ bool debug1 = false;
 float spin = 180;
 float speed = 0;
 glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
-glm::vec3 freeCamAngle = glm::vec3(0);
+glm::vec3 freeCamAngle = glm::vec3(0, -PI/2, 0);
 glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 bool lookAt;
 glm::vec3 lookAtPos = glm::vec3(0.0f);
@@ -77,6 +77,8 @@ int cameraMode = 0;
 void display();						 // called in winmain to draw everything to the screen
 void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
+void rotateCamera(float pitch, float yaw);
+void moveCamera(float dx, float dy, float dz);
 void processKeys();					 // called in winmain to process keyboard input
 void idle();						 // idle function
 void closeGlut();
@@ -228,8 +230,8 @@ void reshape(int width, int height) // Resize the OpenGL window
 void init()
 {
 	glClearColor(1.0, 1.0, 1.0, 0.0); // sets the clear colour to yellow
-									  // glClear(GL_COLOR_BUFFER_BIT) in the display function
-									  // will clear the buffer to this colour
+	// glClear(GL_COLOR_BUFFER_BIT) in the display function
+	// will clear the buffer to this colour
 	glEnable(GL_DEPTH_TEST);
 	// glEnable(GL_CULL_FACE);
 
@@ -282,6 +284,10 @@ void init()
 		floorPlane.ConstructModelFromOBJLoader(objLoader);
 		floorPlane.InitVBO(myShader);
 	}
+
+	rotateCamera(0, 0);
+	moveCamera(0, 0, 0);
+		;
 }
 
 void special(int key, int x, int y)
@@ -426,7 +432,7 @@ void keyUp(unsigned char key, int x, int y)
 	}
 }
 
-void moveCamera(float x, float y, float z)
+void moveCamera(float dx, float dy, float dz)
 {/*
 	float dx, dy, dz;
 
@@ -440,14 +446,11 @@ void moveCamera(float x, float y, float z)
 	freeCamPos.y += dy;
 	freeCamPos.z += dz;*/
 
-	if (x != 0) {
-		freeCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * x;
+	if (dx != 0) {
+		freeCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * dx;
 	}
-	if (y != 0) {
-		//
-	}
-	if (z != 0) {
-		freeCamPos += z * freeCamFront;
+	if (dz != 0) {
+		freeCamPos += dz * freeCamFront;
 	}
 }
 
@@ -491,19 +494,12 @@ void processKeys()
 	if (Down)
 	{
 		rotateCamera(-camRoteSpeed, 0);
-	}
-	if (Home)
-	{
-		moveCamera(0, -camMoveSpeed, 0);
+	
 	}
 	if (keyA)
 	{
 		moveCamera(-camMoveSpeed, 0, 0);
 		
-	}
-	if (End)
-	{
-		moveCamera(0, camMoveSpeed, 0);
 	}
 	if (keyD)
 	{
