@@ -14,6 +14,7 @@ using namespace std;
 
 #include "GL\freeglut.h"
 
+
 #include "Images\FreeImage.h"
 
 #include "shaders\Shader.h"
@@ -77,9 +78,10 @@ int cameraMode = 0;
 void display();						 // called in winmain to draw everything to the screen
 void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
-void rotateCamera(float pitch, float yaw);
+void rotateCamera(float pitch, float yaw); 
 void moveCamera(float dx, float dy, float dz);
 void processKeys();					 // called in winmain to process keyboard input
+void mouse(int btn, int state, int x, int y); // mouse function
 void idle();						 // idle function
 void closeGlut();
 
@@ -285,9 +287,6 @@ void init()
 		floorPlane.InitVBO(myShader);
 	}
 
-	rotateCamera(0, 0);
-	moveCamera(0, 0, 0);
-		;
 }
 
 void special(int key, int x, int y)
@@ -430,6 +429,13 @@ void keyUp(unsigned char key, int x, int y)
 		keyEsc = false;
 		break;
 	}
+}
+
+void mouse(int btn, int state, int x, int y ) {
+	if (x != mouse_x)
+		cout << "mouse dx: " << x - mouse_x << " mouse x: " << x << endl;
+	if (y != mouse_y)
+		cout << "mouse dy: " << y - mouse_y << " mouse y: " << y << endl;
 }
 
 void moveCamera(float dx, float dy, float dz)
@@ -593,7 +599,7 @@ int main(int argc, char **argv)
 	glutSpecialUpFunc(specialUp);
 	glutKeyboardFunc(keyDown);
 	glutKeyboardUpFunc(keyUp);
-
+	glutMouseFunc(mouse);
 	glutIdleFunc(idle);
 
 	// starts the main loop. Program loops and calls callback functions as appropriate.
