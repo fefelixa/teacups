@@ -31,6 +31,7 @@ float temp = 0.002f;
 
 CThreeDModel boxLeft, boxRight, boxFront;
 CThreeDModel cups[3][3],
+	plates[4],
 	floorPlane; // A threeDModel object is needed for each model loaded
 
 float cupAngles[3][3];
@@ -56,17 +57,21 @@ bool LeftPressed = false;
 int screenWidth = 600, screenHeight = 600;
 
 // booleans to handle when the arrow keys are pressed or released.
-bool Left = false;
-bool Right = false;
-bool Up = false;
-bool Down = false;
-bool Home = false;
-bool End = false;
-bool keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc;
+bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc; // keyboard keys
+bool modS, modC, modA; //shift, ctrl, alt modifier keys
+
 bool debug1 = false;
 
-float spin = 180;
-float speed = 0;
+float deltaTime = 0.0f,
+lastFrame = 0.0f,
+currentFrame = 0.0f;
+
+static float angle1 = 0.0f,
+angle2 = 0.0f,
+angle3 = 0.0f,
+speed1 = 0.0002f,
+speed2 = 0.0002f,
+speed3 = 0.0002f;
 
 glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
 glm::vec3 freeCamAngle = glm::vec3(0, -PI/2, 0);
@@ -74,8 +79,8 @@ glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 glm::vec3 lookAtPos = glm::vec3(0.0f);
 bool lookAt;
 int cameraMode = 0;
-float fov = 60.0f;
-float targetFov = 60.0f;
+float fov = 0.6f;
+float targetFov = 0.6f;
 
 // OPENGL FUNCTION PROTOTYPES
 void display();						 // called in winmain to draw everything to the screen
@@ -91,13 +96,9 @@ void closeGlut();
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
 {
-	if (targetFov > fov) {
-		fov += 0.01f;
-		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
-	}
-	if (targetFov < fov) {
-		fov -= 0.01f;
-		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	if (ceil(targetFov*100) != ceil(fov*100)) {
+		fov += (targetFov - fov) * deltaTime / 100;
+		ProjectionMatrix = glm::perspective((float) glm::radians(85*pow(2,fov)-70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -118,26 +119,15 @@ void display()
 	glm::mat4 viewingMatrix = glm::mat4(1.0f);
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	glm::mat3 normalMatrix;
-	// translation and rotation for view
 
-	// apply a rotation to the view
-	static float angle1 = 0.0f,
-				 angle2 = 0.0f,
-				 angle3 = 0.0f;
-	angle1 += 0.0002f; // cup rotation
-	angle2 += 0.0002f; // small plate rotation
-	angle3 += 0.0002f; // big plate rotation
+	angle1 += speed1 * deltaTime; // single cup rotation
+	angle2 += speed2 * deltaTime; // small plate (3 cups) rotation
+	angle3 += speed3 * deltaTime; // big plate (9 cups) rotation
 
-	// use of glm::lookAt for viewing instead.
+	// camera modes controlled with number keys
 	switch (cameraMode)
 	{
 	case 0: // free cam
-
-		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.y, glm::vec3(1, 0, 0));
-		viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.x, glm::vec3(0, 1, 0));
-		/*viewingMatrix = glm::rotate(viewingMatrix, freeCamAngle.z, glm::vec3(0, 0, 1));*/
-		viewingMatrix = glm::translate(viewingMatrix, freeCamPos);
-
 		viewingMatrix = glm::lookAt(freeCamPos, freeCamPos + freeCamFront, glm::vec3(0, 1.0f, 0));
 		break;
 	case 1:																												// view from the ground
@@ -177,14 +167,22 @@ void display()
 	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
 	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 
+	plates[3].DrawElementsUsingVBO(myShader);
+
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1.0f, 0));
+	ModelViewMatrix = viewingMatrix * modelMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
+	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
+	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 	floorPlane.DrawElementsUsingVBO(myShader);
 
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			modelMatrix = glm::rotate(glm::mat4(1.0f), angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(25.0f, 0, 0));
+			modelMatrix = glm::mat4(1.0f);
+			modelMatrix = glm::rotate(modelMatrix , angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(20.0f, 0, 0));
 			modelMatrix = glm::rotate(modelMatrix, angle2 + glm::radians(j * 120.0f), glm::vec3(0.0, 1.0, 0.0));
 			modelMatrix = glm::translate(modelMatrix, glm::vec3(10.0f, 3.5f, 0));
 			modelMatrix = glm::rotate(modelMatrix, angle1, glm::vec3(0.0, 1.0, 0.0));
@@ -202,6 +200,22 @@ void display()
 
 			cups[i][j].DrawElementsUsingVBO(myShader);
 		}
+		
+	}
+
+	for (int i = 0; i < 3; i++) {
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::rotate(modelMatrix, angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(25.0f, 0.1f, 0));
+		modelMatrix = glm::rotate(modelMatrix, angle2, glm::vec3(0.0, 1.0, 0.0));
+
+		ModelViewMatrix = viewingMatrix * modelMatrix;
+		glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
+
+		normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
+		glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
+
+		plates[i].DrawElementsUsingVBO(myShader);
 	}
 	// matrix1
 
@@ -239,7 +253,7 @@ void reshape(int width, int height) // Resize the OpenGL window
 	glViewport(0, 0, width, height); // Reset The Current Viewport
 
 	// Set the projection matrix
-	ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	ProjectionMatrix = glm::perspective((float) glm::radians(85 * pow(2,fov) -70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
 }
 void init()
 {
@@ -276,8 +290,7 @@ void init()
 			sprintf_s(teacupDir, sizeof(teacupDir), "MyModels/teacups/nh/teacup%d.obj", i + 1);
 			if (objLoader.LoadModel(teacupDir)) // returns true if the model is loaded
 			{
-				cout << " model loaded " << endl;
-
+				printf("loaded teacup%d.obj\n", i);
 				// copy data from the OBJLoader object to the threedmodel class
 				cups[j][i].ConstructModelFromOBJLoader(objLoader);
 
@@ -288,9 +301,29 @@ void init()
 			}
 			else
 			{
-				cout << " cups[0][0] failed to load " << endl;
+				printf("teacup %d failed to load\n", i);
 			}
 		}
+	}
+
+	if (objLoader.LoadModel("MyModels/teacups/nh/plate1.obj")) {
+		printf("loaded plate1.obj\n");
+		for (int i = 0; i < 3; i++) {
+			plates[i].ConstructModelFromOBJLoader(objLoader);
+			plates[i].CalcCentrePoint();
+			plates[i].CentreOnZero();
+			plates[i].InitVBO(myShader);
+		}
+	}
+	else
+		printf("failed to load plate1.obj\n");
+	
+	if (objLoader.LoadModel("MyModels/teacups/nh/plate2.obj")) {
+		printf("loaded plate2.onj\n");
+		plates[3].ConstructModelFromOBJLoader(objLoader);
+		plates[3].CalcCentrePoint();
+		plates[3].CentreOnZero();
+		plates[3].InitVBO(myShader);
 	}
 
 	if (objLoader.LoadModel(modelFolder + "floorplane.obj"))
@@ -306,25 +339,43 @@ void special(int key, int x, int y)
 	switch (key)
 	{
 	case GLUT_KEY_LEFT:
-		Left = true;
+		keyLeft = true;
 		break;
 	case GLUT_KEY_RIGHT:
-		Right = true;
+		keyRight = true;
 		break;
 	case GLUT_KEY_UP:
-		Up = true;
+		keyUp = true;
 		break;
 	case GLUT_KEY_DOWN:
-		Down = true;
+		keyDown = true;
 		break;
 	case GLUT_KEY_HOME:
-		Home = true;
+		keyHome = true;
 		break;
 	case GLUT_KEY_END:
-		End = true;
+		keyEnd = true;
 		break;
-	case 27:
+	case 27: // escape
 		keyEsc = true;
+		break;
+	case GLUT_KEY_SHIFT_L:
+		modS = true;
+		break;
+	case GLUT_KEY_SHIFT_R:
+		modS = true;
+		break;
+	case GLUT_KEY_CTRL_L:
+		modC = true;
+		break;
+	case GLUT_KEY_CTRL_R:
+		modC = true;
+		break;
+	case GLUT_KEY_ALT_L:
+		modA = true;
+		break;
+	case GLUT_KEY_ALT_R:
+		modA = true;
 		break;
 	}
 }
@@ -334,30 +385,50 @@ void specialUp(int key, int x, int y)
 	switch (key)
 	{
 	case GLUT_KEY_LEFT:
-		Left = false;
+		keyLeft = false;
 		break;
 	case GLUT_KEY_RIGHT:
-		Right = false;
+		keyRight = false;
 		break;
 	case GLUT_KEY_UP:
-		Up = false;
+		cout << speed1 << endl<<speed2<<endl<<speed3<<endl;
+		keyUp = false;
 		break;
 	case GLUT_KEY_DOWN:
-		Down = false;
+		keyDown = false;
 		break;
 	case GLUT_KEY_HOME:
-		Home = false;
+		keyHome = false;
 		break;
 	case GLUT_KEY_END:
-		End = false;
+		keyEnd = false;
 		break;
-	case 27:
+	case 27: // escape
 		keyEsc = false;
+		break;
+
+	case GLUT_KEY_SHIFT_L:
+		modS = false;
+		break;
+	case GLUT_KEY_SHIFT_R:
+		modS = false;
+		break;
+	case GLUT_KEY_CTRL_L:
+		modC = false;
+		break;
+	case GLUT_KEY_CTRL_R:
+		modC = false;
+		break;
+	case GLUT_KEY_ALT_L:
+		modA = false;
+		break;
+	case GLUT_KEY_ALT_R:
+		modA = false;
 		break;
 	}
 }
 
-void keyDown(unsigned char key, int x, int y)
+void keyPressDown(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
@@ -400,7 +471,7 @@ void keyDown(unsigned char key, int x, int y)
 	}
 }
 
-void keyUp(unsigned char key, int x, int y)
+void keyPressUp(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
@@ -443,25 +514,27 @@ void keyUp(unsigned char key, int x, int y)
 	}
 }
 
-void mouse(int btn, int state, int x, int y ) {
-	cout << "mouse";
-	if (btn == 3) { // zoom in - decrease fov
-		targetFov = max(15.0f, targetFov - 0.5f);
-		cout << "fov: " << targetFov << endl;
-		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+void mouse(int btn, int state, int x, int y) {
+	if (state == 1) {
+		if (btn == 3) { // zoom in - decrease fov
+			targetFov = max(0.0f, targetFov - 0.05f);
+			//fov -= 0.01f;
+			//cout << "fov: " << targetFov << endl;
+
+		}
+		else if (btn == 4) { // zoom out - increase fov
+			targetFov = min(1.0f, targetFov + 0.05f);
+			//fov += 0.01f;
+			//cout << "fov: " << targetFov << endl;
+
+		}
+		else if (btn == 1) {
+			targetFov = 0.6f;
+			//cout << "fov: " << targetFov << endl;
+		}
+
 
 	}
-	else if (btn == 4) { // zoom out - increase fov
-		targetFov = min(90.0f, targetFov + 0.5f);
-		cout << "fov: " << targetFov << endl;
-		ProjectionMatrix = glm::perspective(glm::radians(fov), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
-
-	}
-	else if (btn == 1) {
-		targetFov = 60;
-		cout << "fov: " << targetFov << endl;
-	}
-
 }
 
 void moveCamera(float dx, float dy, float dz)
@@ -510,28 +583,46 @@ void rotateCamera(float dpitch, float dyaw) {
 	freeCamFront = glm::normalize(newCamFront);
 }
 
+
+float maxCupSpeed = 0.01f;
 void processKeys()
 {
-	float camRoteSpeed = 0.0003f;
-	float camMoveSpeed = 0.01f;
+	float camRoteSpeed = 0.003f * deltaTime;
+	float camMoveSpeed = 0.1f * deltaTime;
+	float cupKeySpeed = 0.00001f * deltaTime;
 
-	if (Left)
+	if (keyLeft)
 	{
 		rotateCamera(0, -camRoteSpeed);
 	}
-	if (Right)
+	if (keyRight)
 	{
 		rotateCamera(0, camRoteSpeed);
 
 	}
-	if (Up)
+	if (keyUp)
 	{
-		rotateCamera(camRoteSpeed, 0);
+		if (modS)
+			speed1 = min(maxCupSpeed, cupKeySpeed + speed1);
+		else if (modC)
+			speed2 = min(maxCupSpeed, cupKeySpeed + speed2);
+		else if (modA)
+			speed3 = min(maxCupSpeed, cupKeySpeed + speed3);
+		else
+			rotateCamera(camRoteSpeed, 0);
+		
 	}
-	if (Down)
+	if (keyDown)
 	{
-		rotateCamera(-camRoteSpeed, 0);
-	
+		if (modS) {
+			speed1 = max(-maxCupSpeed, speed1 - cupKeySpeed);
+		}
+		else if (modC)
+			speed2 = max(-maxCupSpeed, speed2 - cupKeySpeed);
+		else if (modA)
+			speed3 = max(-maxCupSpeed, speed3 - cupKeySpeed);
+		else
+			rotateCamera(-camRoteSpeed, 0);
 	}
 	if (keyA)
 	{
@@ -559,8 +650,9 @@ void processKeys()
 	}
 	if (key0)
 	{
-		freeCamPos = glm::vec3(0.0f, -10.0f, -50.0f);
-		freeCamAngle = glm::vec3(0);
+		freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
+		freeCamAngle = glm::vec3(0, -PI / 2, 0);
+		freeCamFront = glm::vec3(0, 0, -1.0f);
 		cameraMode = 0;
 	}
 	if (key1)
@@ -575,18 +667,16 @@ void processKeys()
 	{
 		cout << "angles " << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
 		cout << "position " << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl <<endl;
+		speed1 = speed2 = speed3 = 0;
 		debug1 = true;
 	}
-	
-	// updateTransform(spinXinc, spinYinc, spinZinc);
 }
 
 void idle()
 {
-	
-	spin += speed;
-	if (spin > 360)
-		spin = 0;
+	currentFrame = glutGet(GLUT_ELAPSED_TIME);
+	deltaTime = currentFrame - lastFrame;
+	lastFrame = currentFrame;
 
 	processKeys();
 
@@ -628,8 +718,8 @@ int main(int argc, char **argv)
 
 	glutSpecialFunc(special);
 	glutSpecialUpFunc(specialUp);
-	glutKeyboardFunc(keyDown);
-	glutKeyboardUpFunc(keyUp);
+	glutKeyboardFunc(keyPressDown);
+	glutKeyboardUpFunc(keyPressUp);
 	glutMouseFunc(mouse);
 	glutIdleFunc(idle);
 
