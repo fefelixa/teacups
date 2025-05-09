@@ -427,9 +427,9 @@ bool CThreeDModel::IsTriangleIntersectingAABB(double boxCenter[DIMENSION_IN_3D],
  */
 void CThreeDModel::CalcBoundingBox(double& minX, double& minY, double& minZ, double& maxX, double& maxY, double& maxZ)
 {
-	maxX = minX = m_pvVertices[0].x;
-	maxY = minY = m_pvVertices[0].y;
-	maxZ = minZ = m_pvVertices[0].z;
+	maxX = minX = 0;
+	maxY = minY = 0;
+	maxZ = minZ = 0;
 	double x,y,z;
 	for (int i = 1; i < m_iNumberOfVertices; i++)
 	{
@@ -450,6 +450,35 @@ void CThreeDModel::CalcBoundingBox(double& minX, double& minY, double& minZ, dou
 			minZ = z;
 		if (z > maxZ)
 			maxZ = z;
+	}
+}
+
+void CThreeDModel::CalcBoundingBox()
+{
+	
+	aabb[0] = aabb[3] = 0;
+	aabb[1] = aabb[4] = 0;
+	aabb[2] = aabb[5] = 0;
+	double x, y, z;
+	for (int i = 1; i < m_iNumberOfVertices; i++)
+	{
+
+		x = m_pvVertices[i].x + pos.x;
+		y = m_pvVertices[i].y + pos.y;
+		z = m_pvVertices[i].z + pos.z;
+
+		if (x < aabb[0])
+			aabb[0] = x;
+		if (x > aabb[3])
+			aabb[3] = x;
+		if (y < aabb[1])
+			aabb[1] = y;
+		if (y > aabb[4])
+			aabb[4] = y;
+		if (z < aabb[2])
+			aabb[2] = z;
+		if (z > aabb[5])
+			aabb[5] = z;
 	}
 }
 

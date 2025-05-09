@@ -40,7 +40,6 @@ private:
 	Vector3d*					m_pvVertNormals;
 	Vector3d*					m_pvTexCoords;
 	ObjFace*					m_pobTriangles;
-
 	std::vector<std::tuple<int, int, int>>	m_vuiFaceIndexRangeForTrisWithSameTexture;
 
 	unsigned int				m_uiNumOfVBOs;
@@ -75,14 +74,17 @@ public:
 	void						DrawBoundingBox(CShader* shader);
 	void						DrawAllBoxesForOctreeNodes(CShader* shader);
 	void						DrawOctreeLeaves(CShader* shader);
-	
+	float							aabb[6]; // x1,y1,z1, x2,y2,z2
+
 	int							GetOctreeTriangleListSize();
 	int							GetOctreeVertexListSize();
 	bool						IsTriangleIntersectingAABB(double boxcenter[DIMENSION_IN_3D],double boxhalfsize[DIMENSION_IN_3D], int PrimIndex);
 	bool						IsVertexIntersectingAABB(double min[DIMENSION_IN_3D], double max[DIMENSION_IN_3D], int VertIndex);
 	void						CalcBoundingBox(double& minX, double& minY, double& minZ, double& maxX, double& maxY, double& maxZ);
+	void						CalcBoundingBox();
 
 	Vector3d pos;
+	float angle;
 };
 
 #endif

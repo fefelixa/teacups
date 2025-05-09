@@ -14,7 +14,6 @@ using namespace std;
 
 #include "GL\freeglut.h"
 
-
 #include "Images\FreeImage.h"
 
 #include "shaders\Shader.h"
@@ -32,7 +31,8 @@ float temp = 0.002f;
 CThreeDModel boxLeft, boxRight, boxFront;
 CThreeDModel cups[3][3],
 	plates[4],
-	floorPlane; // A threeDModel object is needed for each model loaded
+	floorPlane;			  // A threeDModel object is needed for each model loaded
+float cups_aabb[3][3][6]; // [i][j][x1,y1,z1,x2,y2,z2]
 
 float cupAngles[3][3];
 COBJLoader objLoader; // this object is used to load the 3d models.
@@ -58,23 +58,23 @@ int screenWidth = 600, screenHeight = 600;
 
 // booleans to handle when the arrow keys are pressed or released.
 bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc; // keyboard keys
-bool modS, modC, modA; //shift, ctrl, alt modifier keys
+bool modS, modC, modA;																											 // shift, ctrl, alt modifier keys
 
 bool debug1 = false;
 
 float deltaTime = 0.0f,
-lastFrame = 0.0f,
-currentFrame = 0.0f;
+	  lastFrame = 0.0f,
+	  currentFrame = 0.0f;
 
 static float angle1 = 0.0f,
-angle2 = 0.0f,
-angle3 = 0.0f,
-speed1 = 0.0002f,
-speed2 = 0.0002f,
-speed3 = 0.0002f;
+			 angle2 = 0.0f,
+			 angle3 = 0.0f,
+			 speed1 = 0.0002f,
+			 speed2 = 0.0002f,
+			 speed3 = 0.0002f;
 
 glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
-glm::vec3 freeCamAngle = glm::vec3(0, -PI/2, 0);
+glm::vec3 freeCamAngle = glm::vec3(0, -PI / 2, 0);
 glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 glm::vec3 lookAtPos = glm::vec3(0.0f);
 bool lookAt;
@@ -82,23 +82,25 @@ int cameraMode = 0;
 float fov = 0.6f;
 float targetFov = 0.6f;
 
+int lastX = 300, lastY = 300;
 // OPENGL FUNCTION PROTOTYPES
 void display();						 // called in winmain to draw everything to the screen
 void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
-void rotateCamera(float pitch, float yaw); 
+void rotateCamera(float pitch, float yaw);
 void moveCamera(float dx, float dy, float dz);
-void processKeys();					 // called in winmain to process keyboard input
-void mouse(int btn, int state, int x, int y); // mouse function
-void idle();						 // idle function
+void processKeys();							  // called in winmain to process keyboard input
+void mouseWheel(int btn, int state, int x, int y); // mouse function
+void idle();								  // idle function
 void closeGlut();
 
 /*************    START OF OPENGL FUNCTIONS   ****************/
 void display()
 {
-	if (ceil(targetFov*100) != ceil(fov*100)) {
+	if (ceil(targetFov * 100) != ceil(fov * 100))
+	{
 		fov += (targetFov - fov) * deltaTime / 100;
-		ProjectionMatrix = glm::perspective((float) glm::radians(85*pow(2,fov)-70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+		ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -175,16 +177,17 @@ void display()
 	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
 	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 	floorPlane.DrawElementsUsingVBO(myShader);
-
+	glm::vec3 move1 = glm::vec3(10.0f, 3.5f, 0);
+	glm::vec3 move2 = glm::vec3(20.0f, 0, 0);
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
 			modelMatrix = glm::mat4(1.0f);
-			modelMatrix = glm::rotate(modelMatrix , angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(20.0f, 0, 0));
+			modelMatrix = glm::rotate(modelMatrix, angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
+			modelMatrix = glm::translate(modelMatrix, move2);
 			modelMatrix = glm::rotate(modelMatrix, angle2 + glm::radians(j * 120.0f), glm::vec3(0.0, 1.0, 0.0));
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(10.0f, 3.5f, 0));
+			modelMatrix = glm::translate(modelMatrix, move1);
 			modelMatrix = glm::rotate(modelMatrix, angle1, glm::vec3(0.0, 1.0, 0.0));
 			glm::vec4 newPos = modelMatrix * glm::vec4(1.0f);
 			cups[i][j].pos.x = newPos[0];
@@ -199,14 +202,16 @@ void display()
 			glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 
 			cups[i][j].DrawElementsUsingVBO(myShader);
+			cups[i][j].CalcBoundingBox();
+			cups[i][j].DrawBoundingBox(myBasicShader);
 		}
-		
 	}
-
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++)
+	{
 		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0.1f, 0));
 		modelMatrix = glm::rotate(modelMatrix, angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(25.0f, 0.1f, 0));
+		modelMatrix = glm::translate(modelMatrix, move2);
 		modelMatrix = glm::rotate(modelMatrix, angle2, glm::vec3(0.0, 1.0, 0.0));
 
 		ModelViewMatrix = viewingMatrix * modelMatrix;
@@ -226,9 +231,8 @@ void display()
 	glUniformMatrix4fv(glGetUniformLocation(myBasicShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
 	// cups[0][0].DrawAllBoxesForOctreeNodes(myBasicShader);
-	//	cups[0][0].CalcBoundingBox()
-	// cups[0][0].DrawBoundingBox(myBasicShader);
-	// model.DrawOctreeLeaves(myBasicShader);
+
+	// cups[0][0].DrawOctreeLeaves(myBasicShader);
 
 	// switch back to the shader for textures and lighting on the objects.
 	glUseProgram(myShader->GetProgramObjID()); // use the shader
@@ -253,11 +257,11 @@ void reshape(int width, int height) // Resize the OpenGL window
 	glViewport(0, 0, width, height); // Reset The Current Viewport
 
 	// Set the projection matrix
-	ProjectionMatrix = glm::perspective((float) glm::radians(85 * pow(2,fov) -70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
 }
 void init()
 {
-	glClearColor(1.0, 1.0, 1.0, 0.0); // sets the clear colour to yellow
+	glClearColor(178.0f / 255.0f, 212.0f / 255.0f, 232.0f / 255.0f, 0.5f); // sets the bg colour to blue
 	// glClear(GL_COLOR_BUFFER_BIT) in the display function
 	// will clear the buffer to this colour
 	glEnable(GL_DEPTH_TEST);
@@ -306,9 +310,11 @@ void init()
 		}
 	}
 
-	if (objLoader.LoadModel("MyModels/teacups/nh/plate1.obj")) {
+	if (objLoader.LoadModel("MyModels/teacups/nh/plate1.obj"))
+	{
 		printf("loaded plate1.obj\n");
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++)
+		{
 			plates[i].ConstructModelFromOBJLoader(objLoader);
 			plates[i].CalcCentrePoint();
 			plates[i].CentreOnZero();
@@ -317,21 +323,23 @@ void init()
 	}
 	else
 		printf("failed to load plate1.obj\n");
-	
-	if (objLoader.LoadModel("MyModels/teacups/nh/plate2.obj")) {
-		printf("loaded plate2.onj\n");
+
+	if (objLoader.LoadModel("MyModels/teacups/nh/plate2.obj"))
+	{
+		printf("loaded plate2.obj\n");
 		plates[3].ConstructModelFromOBJLoader(objLoader);
 		plates[3].CalcCentrePoint();
 		plates[3].CentreOnZero();
 		plates[3].InitVBO(myShader);
 	}
+	else
+		cout << "failed to load plate2.obj" << endl;
 
 	if (objLoader.LoadModel(modelFolder + "floorplane.obj"))
 	{
 		floorPlane.ConstructModelFromOBJLoader(objLoader);
 		floorPlane.InitVBO(myShader);
 	}
-
 }
 
 void special(int key, int x, int y)
@@ -391,7 +399,9 @@ void specialUp(int key, int x, int y)
 		keyRight = false;
 		break;
 	case GLUT_KEY_UP:
-		cout << speed1 << endl<<speed2<<endl<<speed3<<endl;
+		cout << speed1 << endl
+			 << speed2 << endl
+			 << speed3 << endl;
 		keyUp = false;
 		break;
 	case GLUT_KEY_DOWN:
@@ -514,81 +524,100 @@ void keyPressUp(unsigned char key, int x, int y)
 	}
 }
 
-void mouse(int btn, int state, int x, int y) {
-	if (state == 1) {
-		if (btn == 3) { // zoom in - decrease fov
+float mouseSens = 0.005f;
+void mouseMove(int x, int y)
+{
+	int dx = 300 - x;
+	int dy = 300 - y;
+	lastX = x;
+	lastY = y;
+	rotateCamera(dy * mouseSens, -dx * mouseSens);
+	glutWarpPointer(300, 300);
+}
+void mouseWheel(int btn, int state, int x, int y)
+{
+	if (state == 1)
+	{
+		if (btn == 3)
+		{ // zoom in - decrease fov
 			targetFov = max(0.0f, targetFov - 0.05f);
-			//fov -= 0.01f;
-			//cout << "fov: " << targetFov << endl;
 
+			// fov -= 0.01f;
+			// cout << "fov: " << targetFov << endl;
 		}
-		else if (btn == 4) { // zoom out - increase fov
+		else if (btn == 4)
+		{ // zoom out - increase fov
 			targetFov = min(1.0f, targetFov + 0.05f);
-			//fov += 0.01f;
-			//cout << "fov: " << targetFov << endl;
-
+			// fov += 0.01f;
+			// cout << "fov: " << targetFov << endl;
 		}
-		else if (btn == 1) {
+		else if (btn == 1)
+		{
 			targetFov = 0.6f;
-			//cout << "fov: " << targetFov << endl;
+			// cout << "fov: " << targetFov << endl;
 		}
-
-
+		mouseSens = 0.004f * (targetFov + 1);
 	}
 }
 
 void moveCamera(float dx, float dy, float dz)
-{/*
-	float dx, dy, dz;
-
-	dx = x * cos(freeCamAngle.x) - z * sin(freeCamAngle.x) + y * sin(freeCamAngle.x * freeCamAngle.y);
-
-	dy = y * cos(freeCamAngle.y) + z * sin(freeCamAngle.y);
-	
-	dz = x * sin(freeCamAngle.x) + z * cos(freeCamAngle.x) - y*sin(freeCamAngle.y);
-
-	freeCamPos.x += dx;
-	freeCamPos.y += dy;
-	freeCamPos.z += dz;*/
-
-	if (dx != 0) {
-		freeCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * dx;
+{
+	glm::vec3 newCamPos = freeCamPos;
+	if (dx != 0)
+	{
+		newCamPos += glm::normalize(glm::cross(freeCamFront, glm::vec3(0, 1.0f, 0))) * dx;
 	}
-	if (dz != 0) {
-		freeCamPos += dz * freeCamFront;
+	if (dy != 0)
+	{
+		newCamPos.y += dy;
 	}
+	if (dz != 0)
+	{
+		newCamPos += dz * freeCamFront;
+	}
+	if (newCamPos.y < 0.1f)
+	{
+		newCamPos.y = 0.1f;
+	}
+	bool collides = false;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if ((newCamPos.x > cups[i][j].aabb[0] && newCamPos.x < cups[i][j].aabb[3]) &&
+				(newCamPos.y > cups[i][j].aabb[1] && newCamPos.y < cups[i][j].aabb[4]) &&
+				(newCamPos.z > cups[i][j].aabb[2] && newCamPos.z < cups[i][j].aabb[5])) {
+					collides = true;
+					cout << i<<j << endl;
+			}
+		}
+	}
+	if (!collides)
+		freeCamPos = newCamPos;
 }
 
-void rotateCamera(float dpitch, float dyaw) {
+void rotateCamera(float dpitch, float dyaw)
+{
 
-	float newPitch =  freeCamAngle.x + dpitch; // up and down
-	float newYaw =  freeCamAngle.y + dyaw; // left and right
+	float newPitch = freeCamAngle.x + dpitch; // up and down
+	float newYaw = freeCamAngle.y + dyaw;	  // left and right
 
-	//dont break your neck - limit pitch to 180°
-	//freeCamAngle.x = min(freeCamAngle.x, (float)PI / 2);
-	//freeCamAngle.x = max(freeCamAngle.x, -(float)PI / 2);
+	// dont break your neck - limit pitch to 180ï¿½
 	if (abs(newPitch) < PI / 2)
 		freeCamAngle.x = newPitch;
 	freeCamAngle.y = newYaw;
-
-	
 
 	glm::vec3 newCamFront;
 	newCamFront.x = cos(freeCamAngle.y) * cos(freeCamAngle.x);
 	newCamFront.y = sin(freeCamAngle.x);
 	newCamFront.z = sin(freeCamAngle.y) * cos(freeCamAngle.x);
 
-	
-
 	freeCamFront = glm::normalize(newCamFront);
 }
-
 
 float maxCupSpeed = 0.01f;
 void processKeys()
 {
-	float camRoteSpeed = 0.003f * deltaTime;
-	float camMoveSpeed = 0.1f * deltaTime;
+	float camRoteSpeed = 0.002f * deltaTime;
+	float camMoveSpeed = 0.05f * deltaTime;
 	float cupKeySpeed = 0.00001f * deltaTime;
 
 	if (keyLeft)
@@ -598,7 +627,6 @@ void processKeys()
 	if (keyRight)
 	{
 		rotateCamera(0, camRoteSpeed);
-
 	}
 	if (keyUp)
 	{
@@ -610,11 +638,11 @@ void processKeys()
 			speed3 = min(maxCupSpeed, cupKeySpeed + speed3);
 		else
 			rotateCamera(camRoteSpeed, 0);
-		
 	}
 	if (keyDown)
 	{
-		if (modS) {
+		if (modS)
+		{
 			speed1 = max(-maxCupSpeed, speed1 - cupKeySpeed);
 		}
 		else if (modC)
@@ -627,17 +655,14 @@ void processKeys()
 	if (keyA)
 	{
 		moveCamera(-camMoveSpeed, 0, 0);
-		
 	}
 	if (keyD)
 	{
 		moveCamera(camMoveSpeed, 0, 0);
-
 	}
 	if (keyW)
 	{
 		moveCamera(0, 0, camMoveSpeed);
-		
 	}
 	if (keyS)
 	{
@@ -663,12 +688,9 @@ void processKeys()
 	{
 		cameraMode = 2;
 	}
-	if (keySpace && !debug1)
+	if (keySpace)
 	{
-		cout << "angles " << freeCamAngle.x << ' ' << freeCamAngle.y << ' ' << freeCamAngle.z << ' ' << endl;
-		cout << "position " << freeCamPos.x << ' ' << freeCamPos.y << ' ' << freeCamPos.z << ' ' << endl <<endl;
-		speed1 = speed2 = speed3 = 0;
-		debug1 = true;
+		moveCamera(0, camMoveSpeed, 0);
 	}
 }
 
@@ -720,7 +742,8 @@ int main(int argc, char **argv)
 	glutSpecialUpFunc(specialUp);
 	glutKeyboardFunc(keyPressDown);
 	glutKeyboardUpFunc(keyPressUp);
-	glutMouseFunc(mouse);
+	glutMouseFunc(mouseWheel);
+	glutPassiveMotionFunc(mouseMove);
 	glutIdleFunc(idle);
 
 	// starts the main loop. Program loops and calls callback functions as appropriate.
