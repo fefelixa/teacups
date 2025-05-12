@@ -329,7 +329,7 @@ void CThreeDModel::CalcCentrePoint()
 	m_obCentrePoint = Vector3d(minX + ((maxX - minX) / 2.0f),
 		minY + ((maxY - minY) / 2.0f),
 		minZ + ((maxZ - minZ) / 2.0f));
-	
+	pos = m_obCentrePoint;
 }
 
 /*
@@ -394,7 +394,18 @@ bool CThreeDModel::IsVertexIntersectingAABB(double min[DIMENSION_IN_3D], double 
 	}
 	return false;
 }
-
+bool CThreeDModel::isPointInAABB(Vector3d point) {
+	if (point.x > mins.x && point.x < maxs.x &&
+		point.y > mins.y && point.y < maxs.y &&
+		point.z > mins.z && point.z < maxs.z)
+	{
+		std::cout << " mins " << mins << std::endl;
+		std::cout << " maxs " << maxs << std::endl;
+		std::cout << "point " << mins << std::endl;
+		return true;
+	}
+	return false;
+}
 /*
  *	Method	: IsTriangleIntersectingAABB
  *
@@ -454,13 +465,12 @@ void CThreeDModel::CalcBoundingBox(double& minX, double& minY, double& minZ, dou
 			maxZ = z;
 	}
 }
-
 void CThreeDModel::CalcBoundingBox()
 {
 	
-	mins.x = maxs.x = 0;
-	mins.y = maxs.y = 0;
-	mins.z = maxs.z = 0;
+	mins.x = maxs.x = m_pvVertices[0].x + pos.x;
+	mins.y = maxs.y = m_pvVertices[0].y + pos.y;
+	mins.z = maxs.z = m_pvVertices[0].z + pos.z;
 	double x, y, z;
 	for (int i = 1; i < m_iNumberOfVertices; i++)
 	{
@@ -471,7 +481,7 @@ void CThreeDModel::CalcBoundingBox()
 
 		if (x < mins.x)
 			mins.x = x;
-		if (x > maxs[0])
+		if (x > maxs.x)
 			maxs.x = x;
 		if (y < mins.y)
 			mins.y = y;
@@ -482,6 +492,7 @@ void CThreeDModel::CalcBoundingBox()
 		if (z > maxs.z)
 			maxs.z = z;
 	}
+	std::cout << mins << maxs<<std::endl;
 }
 
 /*
@@ -607,8 +618,9 @@ void CThreeDModel::CentreOnZero()
 	{
 		m_pvVertices[count] = m_pvVertices[count] - m_obCentrePoint;
 	}
+	pos = Vector3d();
 	// commented out to allow reusing of original centre point.
-	/*m_obCentrePoint = Vector3d(0,0,0);*/
+	m_obCentrePoint = Vector3d(0,0,0);
 
 }
 

@@ -642,3 +642,24 @@ void COctree::CalcVertexNormals(CThreeDModel* model)
 		}
 	}
 }
+
+bool COctree::pointIntersects(glm::vec3 point) {
+	if (m_iLevel >= MAX_DEPTH) //leaf
+	{
+		if (point.x > m_dMinX && point.x < m_dMaxX &&
+			point.y > m_dMinY && point.y < m_dMaxY &&
+			point.z > m_dMinZ && point.z < m_dMaxZ)
+			return true;
+		return false;
+		
+	}
+	else
+	{
+		//recurse on all the children of the current node
+		for (int i = 0; i < NUM_OF_OCTREE_CHILDREN; i++)
+		{
+			if (m_pobChildren[i] != nullptr)
+				m_pobChildren[i]->pointIntersects(point);
+		}
+	}
+}

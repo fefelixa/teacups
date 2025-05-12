@@ -23,6 +23,11 @@ Vector3d::Vector3d (float *input)
 	y = input[1];
 	z = input[2];
 }
+Vector3d::Vector3d(glm::vec3 newvec) {
+	x = newvec.x;
+	y = newvec.y;
+	z = newvec.z;
+}
 /*******************************************************
 				Opperators
 *******************************************************/

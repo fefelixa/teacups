@@ -16,6 +16,7 @@ public:
 	Vector3d () ;
 	Vector3d (float newX, float newY, float newZ);
 	Vector3d (float *input);
+	Vector3d (glm::vec3 newvec);
 
 	Vector3d operator*(const Vector3d &);   //Vector Cross Product
 	Vector3d operator*(float scale);  //size multiply

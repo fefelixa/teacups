@@ -80,12 +80,12 @@ public:
 	int							GetOctreeTriangleListSize();
 	int							GetOctreeVertexListSize();
 	bool						IsTriangleIntersectingAABB(double boxcenter[DIMENSION_IN_3D],double boxhalfsize[DIMENSION_IN_3D], int PrimIndex);
+	bool isPointInAABB(Vector3d point);
 	bool						IsVertexIntersectingAABB(double min[DIMENSION_IN_3D], double max[DIMENSION_IN_3D], int VertIndex);
 	void						CalcBoundingBox(double& minX, double& minY, double& minZ, double& maxX, double& maxY, double& maxZ);
 	void						CalcBoundingBox();
 
 	Vector3d pos;
-	float angle;
 };
 
 #endif

@@ -2,7 +2,7 @@
 #pragma once
 
 #include <vector>
-
+#include "../glm/glm.hpp"
 /*
 *	Class	: Octree
 *
@@ -44,4 +44,5 @@ public:
 	void			DrawBoundingBox(CShader* myShader);
 	void			DrawAllBoxes(CShader* myShader);
 	void			DrawOctreeLeaves(CShader* myShader);
+	bool			pointIntersects(glm::vec3 point);
 };

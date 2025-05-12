@@ -37,7 +37,8 @@ CThreeDModel boxLeft, boxRight, boxFront;
 CThreeDModel cups[3][3],
 plates[4],
 floorPlane,
-tree[3];			  // A threeDModel object is needed for each model loaded
+tree[3],
+lamppost;			  // A threeDModel object is needed for each model loaded
 
 Sphere sphere;
 static glm::vec4* sphereVerts;
@@ -58,12 +59,17 @@ float Material_Shininess = 50;
 
 // Light Properties
 bool daytime = true;
-float ambient_sun[4] = { 0.61f, 0.62f, 0.6f, 1.0f };
-float ambient_night[4];
 float Light_Ambient_And_Diffuse[4] = { 0.61f, 0.62f, 0.6f, 1.0f };
-
 float Light_Specular[4] = { 0.8f, 0.8f, 0.8f, 1.0f };
 float LightPos[4] = { 0.0f, 0.1f, 0.0f, 0.0f };
+
+float ambient_day[4] = { 0.61f, 0.62f, 0.6f, 1.0f };
+float specular_day[4] = { 0.8f, 0.8f, 0.8f, 1.0f };
+float light_day[4] = { 0.0f, 0.1f, 0.0f, 0.0f };
+
+float ambient_night[4] = { 0.4f, 0.4f, 0.42f, 1.0f };
+float specular_night[4] = { 0.6f,0.6f,0.6f,1.0f };
+float light_night[4] = {0.0f, 0.1f, 0.0f, 0.0f};
 
 int mouse_x = 0, mouse_y = 0;
 bool LeftPressed = false;
@@ -245,8 +251,9 @@ void display()
 
 	float rand1, rand2;
 	for (int i = 0; i < 3; i++) {
-
-		modelMatrix = glm::translate(glm::mat4(1.0f), tree[i].pos.toGlm());
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -tree[i].maxs.y / 2.0f, 0));
+		modelMatrix = glm::translate(modelMatrix, tree[i].pos.toGlm());
 		ModelViewMatrix = viewingMatrix * modelMatrix;
 		glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
@@ -256,7 +263,16 @@ void display()
 		tree[i].DrawElementsUsingVBO(myShader);
 	}
 
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -lamppost.maxs.y/2.0f,0));
+	modelMatrix = glm::translate(modelMatrix, lamppost.pos.toGlm());
+	ModelViewMatrix = viewingMatrix * modelMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
+	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
+	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
+
+	lamppost.DrawElementsUsingVBO(myShader);
 
 
 	glFlush();
@@ -358,27 +374,39 @@ void init()
 	{
 		floorPlane.ConstructModelFromOBJLoader(objLoader);
 		floorPlane.InitVBO(myShader);
-
 	}
-	float rand1, rand2;
 	char filepath[] = "MyModels/trees/toontree/tree0.obj";
-	srand(time(0));
+	
 	for (int i = 0; i < 3; i++) {
-		rand1 = (1 - 2 * int(i / 2)) * (rand() % 50 + 50);
 		sprintf_s(filepath, sizeof(filepath), "MyModels/trees/toontree/tree%d.obj", i + 1);
-		rand2 = (1 - 2 * (i % 2)) * (rand() % 50 + 50);
+		
 		if (objLoader.LoadModel(filepath)) {
 			tree[i].ConstructModelFromOBJLoader(objLoader);
 			tree[i].InitVBO(myShader);
 			tree[i].CalcCentrePoint();
 			tree[i].CentreOnZero();
-			tree[i].pos = Vector3d(rand1, 0, rand2);
-			cout << rand1 << ' ' << rand2 << endl;
+			tree[i].CalcBoundingBox();
+			tree[i].pos = Vector3d((i-1)*75, -tree[i].mins.y, 75 * cos(i * PI));
+			tree[i].CalcBoundingBox();
 		}
 		else {
 			cout << "failed to load " << filepath << endl;
 		}
 	}
+	if (objLoader.LoadModel("MyModels/lamppost/lamppost.obj")) {
+		lamppost.ConstructModelFromOBJLoader(objLoader);
+		lamppost.InitVBO(myShader);
+		lamppost.CalcCentrePoint();
+		lamppost.CentreOnZero();
+		lamppost.CalcBoundingBox();
+		lamppost.pos = Vector3d(10, -lamppost.mins.y, 50);
+		lamppost.CalcBoundingBox();
+
+		light_night[0] = 10;
+		light_night[1] = lamppost.maxs.y - 1;
+		light_night[2] = lamppost.maxs.z;
+	}
+	else cout << "no lamppost" << endl;
 }
 
 void special(int key, int x, int y)
@@ -640,13 +668,21 @@ void moveCamera(float dx, float dy, float dz)
 	{
 		newCamPos.y = 0.1f;
 	}
-
+	
 	bool collides = false;
 	float camDist = sqrt(newCamPos.x * newCamPos.x +
 		newCamPos.z * newCamPos.z);
 	if (camDist < plate2radius && newCamPos.y < 9.72f)
 		collides = true;
-
+	if (lamppost.isPointInAABB(newCamPos)) {
+		collides = true;
+	}
+	for (int i = 0; i < 3; i++) {
+		if (tree[i].isPointInAABB(newCamPos)) {
+			cout << "tree" << i << endl;
+			collides = true;
+		}
+	}
 	bool collisions = true; // manual collision override
 	if (!collisions || !collides) {
 		// move camera
@@ -737,18 +773,18 @@ void processKeys()
 		pressedL = true;
 		if (daytime) {
 			daytime = false;
-			Light_Ambient_And_Diffuse[0] = 0.4f;
-			Light_Ambient_And_Diffuse[1] = 0.4f;
-			Light_Ambient_And_Diffuse[2] = 0.42f;
-			Light_Ambient_And_Diffuse[3] = 1.0f;
+			copy(begin(ambient_night), end(ambient_night), begin(Light_Ambient_And_Diffuse));
+			copy(begin(specular_night), end(specular_night), begin(Light_Specular));
+			copy(begin(light_night), end(light_night), begin(LightPos));
 			glClearColor(2.0f / 255.0f, 10.0f / 255.0f, 35.0f / 255.0f, 1);
 		}
 		else {
 			daytime = true;
-			Light_Ambient_And_Diffuse[0] = 0.61f;
-			Light_Ambient_And_Diffuse[1] = 0.62f;
-			Light_Ambient_And_Diffuse[2] = 0.6f;
-			Light_Ambient_And_Diffuse[3] = 1.0f;
+			copy(begin(ambient_day), end(ambient_day), begin(Light_Ambient_And_Diffuse));
+			copy(begin(specular_day), end(specular_day), begin(Light_Specular));
+			copy(begin(light_day), end(light_day), begin(LightPos));
+
+
 			glClearColor(188.0f / 255.0f, 231.0f / 255.0f, 253.0f / 255.0f, 1);
 		}
 	}
