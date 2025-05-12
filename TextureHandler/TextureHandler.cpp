@@ -33,6 +33,7 @@ GLuint CTextureHandler::LoadTexture(const char* fileName)
 	if (textureID == -1)
 	{
 		std::cout << "Could not open " << fileName << std::endl;
+		return -1;
 	}
 
 	return textureID;

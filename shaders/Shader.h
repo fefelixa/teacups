@@ -2,6 +2,9 @@
 #define SHADER_H
 
 #include <string>
+#include "../GL/glew.h"
+
+//using namespace
 
 // GLSL wrapper
 class CShader

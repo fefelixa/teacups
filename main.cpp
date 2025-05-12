@@ -17,24 +17,33 @@ using namespace std;
 #include "Images\FreeImage.h"
 
 #include "shaders\Shader.h"
+#include "Sphere\Sphere.h"
 
-CShader *myShader; /// shader object
-CShader *myBasicShader;
+CShader* myShader; /// shader object
+CShader* myBasicShader;
 
 // MODEL LOADING
 #include "3DStruct\threeDModel.h"
 #include "Obj\OBJLoader.h"
+
+#include <iostream>
+#include <fstream>
+
 
 float amount = 0;
 float temp = 0.002f;
 
 CThreeDModel boxLeft, boxRight, boxFront;
 CThreeDModel cups[3][3],
-	plates[4],
-	floorPlane;			  // A threeDModel object is needed for each model loaded
-float cups_aabb[3][3][6]; // [i][j][x1,y1,z1,x2,y2,z2]
+plates[4],
+floorPlane,
+tree[3];			  // A threeDModel object is needed for each model loaded
 
-float cupAngles[3][3];
+Sphere sphere;
+static glm::vec4* sphereVerts;
+static glm::vec3* sphereNorms;
+static unsigned int* sphereIndices;
+
 COBJLoader objLoader; // this object is used to load the 3d models.
 /// END MODEL LOADING
 
@@ -42,56 +51,67 @@ glm::mat4 ProjectionMatrix; // matrix for the orthographic projection
 glm::mat4 ModelViewMatrix;	// matrix for the modelling and viewing
 
 // Material properties
-float Material_Ambient[4] = {0.6f, 0.6f, 0.6f, 1.0f};
-float Material_Diffuse[4] = {0.8f, 0.8f, 0.5f, 1.0f};
-float Material_Specular[4] = {0.9f, 0.9f, 0.8f, 1.0f};
+float Material_Ambient[4] = { 0.6f, 0.6f, 0.6f, 1.0f };
+float Material_Diffuse[4] = { 0.8f, 0.8f, 0.5f, 1.0f };
+float Material_Specular[4] = { 0.9f, 0.9f, 0.8f, 1.0f };
 float Material_Shininess = 50;
 
 // Light Properties
-float Light_Ambient_And_Diffuse[4] = {0.6f, 0.6f, 0.6f, 1.0f};
-float Light_Specular[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-float LightPos[4] = {0.0f, 0.1f, 0.0f, 0.0f};
+bool daytime = true;
+float ambient_sun[4] = { 0.61f, 0.62f, 0.6f, 1.0f };
+float ambient_night[4];
+float Light_Ambient_And_Diffuse[4] = { 0.61f, 0.62f, 0.6f, 1.0f };
+
+float Light_Specular[4] = { 0.8f, 0.8f, 0.8f, 1.0f };
+float LightPos[4] = { 0.0f, 0.1f, 0.0f, 0.0f };
 
 int mouse_x = 0, mouse_y = 0;
 bool LeftPressed = false;
 int screenWidth = 600, screenHeight = 600;
 
 // booleans to handle when the arrow keys are pressed or released.
-bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc; // keyboard keys
+bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc, keyL, keyF; // keyboard keys
+bool pressedL, pressedF;
 bool modS, modC, modA;																											 // shift, ctrl, alt modifier keys
+
+float plate2radius;
 
 bool debug1 = false;
 
 float deltaTime = 0.0f,
-	  lastFrame = 0.0f,
-	  currentFrame = 0.0f;
+lastFrame = 0.0f,
+currentFrame = 0.0f;
 
 static float angle1 = 0.0f,
-			 angle2 = 0.0f,
-			 angle3 = 0.0f,
-			 speed1 = 0.0002f,
-			 speed2 = 0.0002f,
-			 speed3 = 0.0002f;
+angle2 = 0.0f,
+angle3 = 0.0f,
+speed1 = 0.0002f,
+speed2 = 0.0002f,
+speed3 = 0.0002f;
+
+float cupAngles[3][3];
 
 glm::vec3 freeCamPos = glm::vec3(0.0f, 10.0f, 50.0f);
 glm::vec3 freeCamAngle = glm::vec3(0, -PI / 2, 0);
 glm::vec3 freeCamFront = glm::vec3(0, 0, -1.0f);
 glm::vec3 lookAtPos = glm::vec3(0.0f);
 bool lookAt;
+
 int cameraMode = 0;
 float fov = 0.6f;
 float targetFov = 0.6f;
+bool lockMouse = false;
 
-int lastX = 300, lastY = 300;
 // OPENGL FUNCTION PROTOTYPES
 void display();						 // called in winmain to draw everything to the screen
 void reshape(int width, int height); // called when the window is resized
 void init();						 // called in winmain when the program starts.
-void rotateCamera(float pitch, float yaw);
-void moveCamera(float dx, float dy, float dz);
+void rotateCamera(float pitch, float yaw); // rotates the camera
+void moveCamera(float dx, float dy, float dz); // moves the camera
 void processKeys();							  // called in winmain to process keyboard input
-void mouseWheel(int btn, int state, int x, int y); // mouse function
+void mouseButton(int btn, int state, int x, int y); // scroll wheel function
 void idle();								  // idle function
+void printFile(char* filename);
 void closeGlut();
 
 /*************    START OF OPENGL FUNCTIONS   ****************/
@@ -100,9 +120,8 @@ void display()
 	if (ceil(targetFov * 100) != ceil(fov * 100))
 	{
 		fov += (targetFov - fov) * deltaTime / 100;
-		ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+		ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 0.1f, 200.0f);
 	}
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(myShader->GetProgramObjID()); // use the shader
@@ -132,8 +151,9 @@ void display()
 	case 0: // free cam
 		viewingMatrix = glm::lookAt(freeCamPos, freeCamPos + freeCamFront, glm::vec3(0, 1.0f, 0));
 		break;
-	case 1:																												// view from the ground
-		viewingMatrix = glm::lookAt(glm::vec3(0.0f, 5.0f, -70.0f), cups[0][0].pos.toGlm(), glm::vec3(0.0f, 1.0f, 0.0)); // lok at a teacup from above
+	case 1:
+		freeCamPos.y = 8.0f;// view from the ground
+		viewingMatrix = glm::lookAt(freeCamPos, freeCamPos + freeCamFront, glm::vec3(0, 1.0f, 0)); // lok at a teacup from above
 		break;
 	case 2: // view from the ride
 		glm::vec3 cam2pos = -cups[0][0].pos.toGlm();
@@ -171,13 +191,13 @@ void display()
 
 	plates[3].DrawElementsUsingVBO(myShader);
 
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1.0f, 0));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -0.01f, 0));
 	ModelViewMatrix = viewingMatrix * modelMatrix;
 	glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
 	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 	floorPlane.DrawElementsUsingVBO(myShader);
-	glm::vec3 move1 = glm::vec3(10.0f, 3.5f, 0);
+	glm::vec3 move1 = glm::vec3(10.0f, 3.13f, 0);
 	glm::vec3 move2 = glm::vec3(20.0f, 0, 0);
 	for (int i = 0; i < 3; i++)
 	{
@@ -190,26 +210,26 @@ void display()
 			modelMatrix = glm::translate(modelMatrix, move1);
 			modelMatrix = glm::rotate(modelMatrix, angle1, glm::vec3(0.0, 1.0, 0.0));
 			glm::vec4 newPos = modelMatrix * glm::vec4(1.0f);
-			cups[i][j].pos.x = newPos[0];
-			cups[i][j].pos.y = newPos[1];
-			cups[i][j].pos.z = newPos[2];
+			cups[i][j].pos.x = newPos.x;
+			cups[i][j].pos.y = newPos.y;
+			cups[i][j].pos.z = newPos.z;
 			cupAngles[i][j] = angle1 + angle2 + glm::radians(j * 120.0f) + angle3 + glm::radians(i * 120.0f);
+			//cupCyls[i][j].setPos(glm::vec3(newPos.x, 1.0f, newPos.z));
 			// std::cout << cups[i][j].pos << endl;
 			ModelViewMatrix = viewingMatrix * modelMatrix;
 			glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
 			normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
 			glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
-
 			cups[i][j].DrawElementsUsingVBO(myShader);
-			cups[i][j].CalcBoundingBox();
-			cups[i][j].DrawBoundingBox(myBasicShader);
+			//cups[i][j].CalcBoundingBox();
+			//cups[i][j].DrawBoundingBox(myBasicShader);
 		}
 	}
 	for (int i = 0; i < 3; i++)
 	{
 		modelMatrix = glm::mat4(1.0f);
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0.1f, 0));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0.01f, 0));
 		modelMatrix = glm::rotate(modelMatrix, angle3 + glm::radians(i * 120.0f), glm::vec3(0, 1, 0));
 		modelMatrix = glm::translate(modelMatrix, move2);
 		modelMatrix = glm::rotate(modelMatrix, angle2, glm::vec3(0.0, 1.0, 0.0));
@@ -222,27 +242,22 @@ void display()
 
 		plates[i].DrawElementsUsingVBO(myShader);
 	}
-	// matrix1
 
-	// Switch to basic shader to draw the lines for the bounding boxes
-	glUseProgram(myBasicShader->GetProgramObjID());
-	projMatLocation = glGetUniformLocation(myBasicShader->GetProgramObjID(), "ProjectionMatrix");
-	glUniformMatrix4fv(projMatLocation, 1, GL_FALSE, &ProjectionMatrix[0][0]);
-	glUniformMatrix4fv(glGetUniformLocation(myBasicShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
+	float rand1, rand2;
+	for (int i = 0; i < 3; i++) {
 
-	// cups[0][0].DrawAllBoxesForOctreeNodes(myBasicShader);
+		modelMatrix = glm::translate(glm::mat4(1.0f), tree[i].pos.toGlm());
+		ModelViewMatrix = viewingMatrix * modelMatrix;
+		glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
-	// cups[0][0].DrawOctreeLeaves(myBasicShader);
+		normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
+		glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 
-	// switch back to the shader for textures and lighting on the objects.
-	glUseProgram(myShader->GetProgramObjID()); // use the shader
+		tree[i].DrawElementsUsingVBO(myShader);
+	}
 
-	ModelViewMatrix = glm::translate(viewingMatrix, glm::vec3(0, 0, 0));
 
-	normalMatrix = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
-	glUniformMatrix3fv(glGetUniformLocation(myShader->GetProgramObjID(), "NormalMatrix"), 1, GL_FALSE, &normalMatrix[0][0]);
 
-	glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
 	glFlush();
 	glutSwapBuffers();
@@ -252,15 +267,16 @@ void reshape(int width, int height) // Resize the OpenGL window
 {
 	screenWidth = width;
 	screenHeight = height; // to ensure the mouse coordinates match
-						   // we will use these values to set the coordinate system
+	// we will use these values to set the coordinate system
 
 	glViewport(0, 0, width, height); // Reset The Current Viewport
 
 	// Set the projection matrix
-	ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 200.0f);
+	ProjectionMatrix = glm::perspective((float)glm::radians(85 * pow(2, fov) - 70), (GLfloat)screenWidth / (GLfloat)screenHeight, 1.0f, 400.0f);
 }
 void init()
 {
+	printFile("help.txt");
 	glClearColor(178.0f / 255.0f, 212.0f / 255.0f, 232.0f / 255.0f, 0.5f); // sets the bg colour to blue
 	// glClear(GL_COLOR_BUFFER_BIT) in the display function
 	// will clear the buffer to this colour
@@ -283,10 +299,9 @@ void init()
 	glUseProgram(myShader->GetProgramObjID()); // use the shader
 
 	glEnable(GL_TEXTURE_2D);
-
 	std::string modelFolder = "MyModels/teacups/nh/";
 	char teacupDir[33];
-	cout << " loading model " << endl;
+	//cout << " loading model " << endl;
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
@@ -294,7 +309,7 @@ void init()
 			sprintf_s(teacupDir, sizeof(teacupDir), "MyModels/teacups/nh/teacup%d.obj", i + 1);
 			if (objLoader.LoadModel(teacupDir)) // returns true if the model is loaded
 			{
-				printf("loaded teacup%d.obj\n", i);
+				//printf("loaded teacup%d.obj\n", i);
 				// copy data from the OBJLoader object to the threedmodel class
 				cups[j][i].ConstructModelFromOBJLoader(objLoader);
 
@@ -302,17 +317,18 @@ void init()
 				cups[j][i].CentreOnZero();
 
 				cups[j][i].InitVBO(myShader);
+				//cupCyls[i][j] = Cylinder(15.5f, 6.22f);
 			}
 			else
 			{
-				printf("teacup %d failed to load\n", i);
+				printf("teacup%d.obj failed to load\n", i);
 			}
 		}
 	}
-
+	cups[0][0].CalcBoundingBox();
 	if (objLoader.LoadModel("MyModels/teacups/nh/plate1.obj"))
 	{
-		printf("loaded plate1.obj\n");
+		//printf("loaded plate1.obj\n");
 		for (int i = 0; i < 3; i++)
 		{
 			plates[i].ConstructModelFromOBJLoader(objLoader);
@@ -326,19 +342,42 @@ void init()
 
 	if (objLoader.LoadModel("MyModels/teacups/nh/plate2.obj"))
 	{
-		printf("loaded plate2.obj\n");
+		//printf("loaded plate2.obj\n");
 		plates[3].ConstructModelFromOBJLoader(objLoader);
 		plates[3].CalcCentrePoint();
 		plates[3].CentreOnZero();
 		plates[3].InitVBO(myShader);
+		plates[3].CalcBoundingBox();
+		plate2radius = plates[3].maxs.x - plates[3].mins.x;
+		plate2radius /= 2.0f;
 	}
 	else
 		cout << "failed to load plate2.obj" << endl;
 
-	if (objLoader.LoadModel(modelFolder + "floorplane.obj"))
+	if (objLoader.LoadModel("MyModels/grass/floorplane.obj"))
 	{
 		floorPlane.ConstructModelFromOBJLoader(objLoader);
 		floorPlane.InitVBO(myShader);
+
+	}
+	float rand1, rand2;
+	char filepath[] = "MyModels/trees/toontree/tree0.obj";
+	srand(time(0));
+	for (int i = 0; i < 3; i++) {
+		rand1 = (1 - 2 * int(i / 2)) * (rand() % 50 + 50);
+		sprintf_s(filepath, sizeof(filepath), "MyModels/trees/toontree/tree%d.obj", i + 1);
+		rand2 = (1 - 2 * (i % 2)) * (rand() % 50 + 50);
+		if (objLoader.LoadModel(filepath)) {
+			tree[i].ConstructModelFromOBJLoader(objLoader);
+			tree[i].InitVBO(myShader);
+			tree[i].CalcCentrePoint();
+			tree[i].CentreOnZero();
+			tree[i].pos = Vector3d(rand1, 0, rand2);
+			cout << rand1 << ' ' << rand2 << endl;
+		}
+		else {
+			cout << "failed to load " << filepath << endl;
+		}
 	}
 }
 
@@ -399,9 +438,6 @@ void specialUp(int key, int x, int y)
 		keyRight = false;
 		break;
 	case GLUT_KEY_UP:
-		cout << speed1 << endl
-			 << speed2 << endl
-			 << speed3 << endl;
 		keyUp = false;
 		break;
 	case GLUT_KEY_DOWN:
@@ -442,9 +478,7 @@ void keyPressDown(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
-	case 'q':
-		keyQ = true;
-		break;
+
 
 	case 'a':
 		keyA = true;
@@ -459,6 +493,13 @@ void keyPressDown(unsigned char key, int x, int y)
 		keyW = true;
 		break;
 
+	case 'l':
+		keyL = true;
+		break;
+
+	case 'f':
+		keyF = true;
+		break;
 	case '0':
 		key0 = true;
 		break;
@@ -485,10 +526,6 @@ void keyPressUp(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
-	case 'q':
-		keyQ = false;
-		break;
-
 	case 'a':
 		keyA = false;
 		break;
@@ -502,6 +539,17 @@ void keyPressUp(unsigned char key, int x, int y)
 		keyW = false;
 		break;
 
+	case 'q':
+		keyQ = false;
+		break;
+	case 'l':
+		keyL = false;
+		pressedL = false;
+		break;
+	case 'f':
+		keyF = false;
+		pressedF = false;
+		break;
 	case '0':
 		key0 = false;
 		break;
@@ -518,6 +566,7 @@ void keyPressUp(unsigned char key, int x, int y)
 		keySpace = false;
 		debug1 = false;
 		break;
+
 	case 27:
 		keyEsc = false;
 		break;
@@ -527,36 +576,47 @@ void keyPressUp(unsigned char key, int x, int y)
 float mouseSens = 0.005f;
 void mouseMove(int x, int y)
 {
-	int dx = 300 - x;
-	int dy = 300 - y;
-	lastX = x;
-	lastY = y;
-	rotateCamera(dy * mouseSens, -dx * mouseSens);
-	glutWarpPointer(300, 300);
+	if (lockMouse) {
+		glutSetCursor(GLUT_CURSOR_NONE);
+
+		int dx = (screenWidth / 2) - x;
+		int dy = (screenHeight / 2) - y;
+		rotateCamera(dy * mouseSens, -dx * mouseSens);
+
+		glutWarpPointer(screenWidth / 2, screenHeight / 2);
+	}
+	else
+
+		glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
 }
-void mouseWheel(int btn, int state, int x, int y)
+void mouseButton(int btn, int state, int x, int y)
 {
-	if (state == 1)
+	if (state == GLUT_DOWN) // mouse down
 	{
-		if (btn == 3)
+		if (btn == GLUT_RIGHT_BUTTON) { // right mouse
+			glutSetCursor(GLUT_CURSOR_NONE);
+
+			lockMouse = !lockMouse;
+			glutWarpPointer(screenWidth / 2, screenHeight / 2);
+		}
+		if (btn == 3) // scroll up
 		{ // zoom in - decrease fov
 			targetFov = max(0.0f, targetFov - 0.05f);
 
 			// fov -= 0.01f;
 			// cout << "fov: " << targetFov << endl;
 		}
-		else if (btn == 4)
+		else if (btn == 4) //scroll down
 		{ // zoom out - increase fov
 			targetFov = min(1.0f, targetFov + 0.05f);
 			// fov += 0.01f;
 			// cout << "fov: " << targetFov << endl;
 		}
-		else if (btn == 1)
+		else if (btn == GLUT_MIDDLE_BUTTON)
 		{
 			targetFov = 0.6f;
 			// cout << "fov: " << targetFov << endl;
 		}
-		mouseSens = 0.004f * (targetFov + 1);
 	}
 }
 
@@ -575,23 +635,27 @@ void moveCamera(float dx, float dy, float dz)
 	{
 		newCamPos += dz * freeCamFront;
 	}
+
 	if (newCamPos.y < 0.1f)
 	{
 		newCamPos.y = 0.1f;
 	}
+
 	bool collides = false;
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 3; j++) {
-			if ((newCamPos.x > cups[i][j].aabb[0] && newCamPos.x < cups[i][j].aabb[3]) &&
-				(newCamPos.y > cups[i][j].aabb[1] && newCamPos.y < cups[i][j].aabb[4]) &&
-				(newCamPos.z > cups[i][j].aabb[2] && newCamPos.z < cups[i][j].aabb[5])) {
-					collides = true;
-					cout << i<<j << endl;
-			}
-		}
+	float camDist = sqrt(newCamPos.x * newCamPos.x +
+		newCamPos.z * newCamPos.z);
+	if (camDist < plate2radius && newCamPos.y < 9.72f)
+		collides = true;
+
+	bool collisions = true; // manual collision override
+	if (!collisions || !collides) {
+		// move camera
+		freeCamPos.y = newCamPos.y;
+		freeCamPos.x = newCamPos.x;
+		freeCamPos.z = newCamPos.z;
 	}
-	if (!collides)
-		freeCamPos = newCamPos;
+
+
 }
 
 void rotateCamera(float dpitch, float dyaw)
@@ -669,6 +733,30 @@ void processKeys()
 		moveCamera(0, 0, -camMoveSpeed);
 	}
 
+	if (keyL && !pressedL) {
+		pressedL = true;
+		if (daytime) {
+			daytime = false;
+			Light_Ambient_And_Diffuse[0] = 0.4f;
+			Light_Ambient_And_Diffuse[1] = 0.4f;
+			Light_Ambient_And_Diffuse[2] = 0.42f;
+			Light_Ambient_And_Diffuse[3] = 1.0f;
+			glClearColor(2.0f / 255.0f, 10.0f / 255.0f, 35.0f / 255.0f, 1);
+		}
+		else {
+			daytime = true;
+			Light_Ambient_And_Diffuse[0] = 0.61f;
+			Light_Ambient_And_Diffuse[1] = 0.62f;
+			Light_Ambient_And_Diffuse[2] = 0.6f;
+			Light_Ambient_And_Diffuse[3] = 1.0f;
+			glClearColor(188.0f / 255.0f, 231.0f / 255.0f, 253.0f / 255.0f, 1);
+		}
+	}
+	if (keyF && !pressedF) {
+		glutFullScreenToggle();
+		pressedF = true;
+	}
+
 	if (keyEsc)
 	{
 		glutLeaveMainLoop();
@@ -682,6 +770,9 @@ void processKeys()
 	}
 	if (key1)
 	{
+		freeCamPos = glm::vec3(0.0f, 9.5f, 50.0f);
+		freeCamAngle = glm::vec3(0, -PI / 2, 0);
+		freeCamFront = glm::vec3(0, 0, -1.0f);
 		cameraMode = 1;
 	}
 	if (key2)
@@ -703,13 +794,32 @@ void idle()
 	processKeys();
 
 	glutPostRedisplay();
+	//printf("CupMin: %.2f, %.2f, %.2f\nCupMax: %.2f, %.2f, %.2f\n",
+		//cups[0][0].aabb[0], cups[0][0].aabb[1], cups[0][0].aabb[2],
+		//cups[0][0].aabb[3], cups[0][0].aabb[4], cups[0][0].aabb[5]
+	//);
 }
 void closeGlut()
 {
 }
 /**************** END OPENGL FUNCTIONS *************************/
 
-int main(int argc, char **argv)
+void printFile(char* filename) {
+	string s;
+	ifstream f(filename);
+	if (f.is_open()) {
+		cout << endl;
+		while (getline(f, s)) {
+			cout << s << endl;
+		}
+		f.close();
+		cout << endl;
+	}
+	else cout << "cant open " << filename << endl;
+
+}
+
+int main(int argc, char** argv)
 {
 	glutInit(&argc, argv);
 
@@ -729,10 +839,12 @@ int main(int argc, char **argv)
 	int OpenGLVersion[2];
 	glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
 	glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
-	cout << OpenGLVersion[0] << " " << OpenGLVersion[1] << endl;
+	cout << "OpenGL Version " << OpenGLVersion[0] << "." << OpenGLVersion[1] << endl;
 
 	// initialise the objects for rendering
 	init();
+
+
 
 	glutReshapeFunc(reshape);
 	// specify which function will be called to refresh the screen.
@@ -742,8 +854,9 @@ int main(int argc, char **argv)
 	glutSpecialUpFunc(specialUp);
 	glutKeyboardFunc(keyPressDown);
 	glutKeyboardUpFunc(keyPressUp);
-	glutMouseFunc(mouseWheel);
+	glutMouseFunc(mouseButton);
 	glutPassiveMotionFunc(mouseMove);
+	glutMotionFunc(mouseMove);
 	glutIdleFunc(idle);
 
 	// starts the main loop. Program loops and calls callback functions as appropriate.

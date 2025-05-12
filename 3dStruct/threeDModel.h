@@ -74,7 +74,8 @@ public:
 	void						DrawBoundingBox(CShader* shader);
 	void						DrawAllBoxesForOctreeNodes(CShader* shader);
 	void						DrawOctreeLeaves(CShader* shader);
-	float							aabb[6]; // x1,y1,z1, x2,y2,z2
+	Vector3d					maxs; // x1,y1,z1
+	Vector3d					mins;
 
 	int							GetOctreeTriangleListSize();
 	int							GetOctreeVertexListSize();

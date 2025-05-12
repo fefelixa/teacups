@@ -162,13 +162,15 @@ void CThreeDModel::ConstructModelFromOBJLoader(COBJLoader& refOBJLoader)
 	m_iNumberOfMaterials = (int)refOBJLoader.m_vMats.size();
 	m_iNumberOfFaceNormals = (int)refOBJLoader.m_vFaces.size();
 
-	//Output models Stats	
+	//Output models Stats
+	/*
 	std::cout << "Number of Vertices " << m_iNumberOfVertices << std::endl;
 	std::cout << "Number of Triangles " << m_iNumberOfTriangles << std::endl;
 	std::cout << "Number of Vert Normals " << m_iNumberOfVertNormals << std::endl;
 	std::cout << "Number of Face Normals " << m_iNumberOfFaceNormals << std::endl;
 	std::cout << "Number of TexCoords " << m_iNumberOfTexCoords << std::endl;
 	std::cout << "Number of Materials " << m_iNumberOfMaterials << std::endl;
+	*/
 
 	//Copy over the model
 	m_pvFaceNormals = new Vector3d[m_iNumberOfFaceNormals];
@@ -229,9 +231,9 @@ void CThreeDModel::ConstructModelFromOBJLoader(COBJLoader& refOBJLoader)
 	}
 	std::tuple<int, int, int> t = std::make_tuple(polyCount * 3, (polyCount + polyCounter - 1) * 3, matID);
 	m_vuiFaceIndexRangeForTrisWithSameTexture.push_back(t);
-	std::cout << " number of different textures: " << m_vuiFaceIndexRangeForTrisWithSameTexture.size() << std::endl;
+	//std::cout << " number of different textures: " << m_vuiFaceIndexRangeForTrisWithSameTexture.size() << std::endl;
 	CalcCentrePoint();
-	std::cout << "centre point: " << m_obCentrePoint << std::endl;
+	//std::cout << "centre point: " << m_obCentrePoint << std::endl;
 }
 
 
@@ -384,9 +386,9 @@ int CThreeDModel::GetOctreeVertexListSize()
  */
 bool CThreeDModel::IsVertexIntersectingAABB(double min[DIMENSION_IN_3D], double max[DIMENSION_IN_3D], int VertIndex)
 {
-	if (m_pvVertices[VertIndex].x >= min[0] && m_pvVertices[VertIndex].x <= max[0] &&
-		m_pvVertices[VertIndex].y >= min[1] && m_pvVertices[VertIndex].y <= max[1] &&
-		m_pvVertices[VertIndex].z >= min[2] && m_pvVertices[VertIndex].z <= max[2])
+	if (m_pvVertices[VertIndex].x >= mins.x && m_pvVertices[VertIndex].x <= max[0] &&
+		m_pvVertices[VertIndex].y >= mins.y && m_pvVertices[VertIndex].y <= max[1] &&
+		m_pvVertices[VertIndex].z >= mins.z && m_pvVertices[VertIndex].z <= max[2])
 	{
 		return true;
 	}
@@ -456,9 +458,9 @@ void CThreeDModel::CalcBoundingBox(double& minX, double& minY, double& minZ, dou
 void CThreeDModel::CalcBoundingBox()
 {
 	
-	aabb[0] = aabb[3] = 0;
-	aabb[1] = aabb[4] = 0;
-	aabb[2] = aabb[5] = 0;
+	mins.x = maxs.x = 0;
+	mins.y = maxs.y = 0;
+	mins.z = maxs.z = 0;
 	double x, y, z;
 	for (int i = 1; i < m_iNumberOfVertices; i++)
 	{
@@ -467,18 +469,18 @@ void CThreeDModel::CalcBoundingBox()
 		y = m_pvVertices[i].y + pos.y;
 		z = m_pvVertices[i].z + pos.z;
 
-		if (x < aabb[0])
-			aabb[0] = x;
-		if (x > aabb[3])
-			aabb[3] = x;
-		if (y < aabb[1])
-			aabb[1] = y;
-		if (y > aabb[4])
-			aabb[4] = y;
-		if (z < aabb[2])
-			aabb[2] = z;
-		if (z > aabb[5])
-			aabb[5] = z;
+		if (x < mins.x)
+			mins.x = x;
+		if (x > maxs[0])
+			maxs.x = x;
+		if (y < mins.y)
+			mins.y = y;
+		if (y > maxs.y)
+			maxs.y = y;
+		if (z < mins.z)
+			mins.z = z;
+		if (z > maxs.z)
+			maxs.z = z;
 	}
 }
 
@@ -751,7 +753,7 @@ void CThreeDModel::InitVBO(CShader* myShader)
 	glBindVertexArray(m_uiVaoID);
 
 	size_t numOfMaterials = m_vuiFaceIndexRangeForTrisWithSameTexture.size();// / 3;
-	std::cout << " initVBO " << numOfMaterials << std::endl;
+	//std::cout << " initVBO " << numOfMaterials << std::endl;
 
 	m_uiNumOfVBOs = NUM_OF_VBOS_WITHOUT_TRI_IDS; //verts, normals, texcoords
 	m_uiNumOfVBOs += numOfMaterials; //plus the trilist for each of the materials used.

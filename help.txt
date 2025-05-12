@@ -1,0 +1,12 @@
+=== SPINNING HEXAGONAL RAMEKINS ===
+WASD - movement
+Space - go up
+Right click - toggle mouse
+0 - Free Camera
+1 - Ground view
+2 - Ride view
+Arrow Keys - rotate free camera (0)
+Scroll - zoom in/out (FOV)
+Shift/Ctrl/Alt arrow keys to adjust ride speed
+L - toggle day/night
+Escape - quit the program

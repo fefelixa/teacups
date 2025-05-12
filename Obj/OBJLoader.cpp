@@ -131,7 +131,7 @@ bool COBJLoader::LoadMTLFile(const char* mainName, const char* filename)
 
 	{
 
-		std::cout << "Can't open the file" << std::endl;
+		//std::cout << "Can't open the file" << std::endl;
 
 		return false;
 
@@ -175,7 +175,7 @@ bool COBJLoader::LoadMTLFile(const char* mainName, const char* filename)
 			fin >> ws;
 
 			sscanf_s(line, "%s", newMaterial.m_carrMatName, _countof(line));
-			cout << newMaterial.m_carrMatName << " MATERIAL NAME>" << endl;
+			//cout << newMaterial.m_carrMatName << " MATERIAL NAME>" << endl;
 
 			foundNewMaterial = true;
 
@@ -298,13 +298,13 @@ bool COBJLoader::LoadMTLFile(const char* mainName, const char* filename)
 		string s = actualPath + "\\" + newMaterial.m_carrTextureName;
 		newMaterial.m_iGLTextureIndex = CTextureHandler::LookUpTexture(s);
 
-		cout << "MATERIAL " << newMaterial.m_carrTextureName << " " << newMaterial.m_iGLTextureIndex << endl;
+		//cout << "MATERIAL " << newMaterial.m_carrTextureName << " " << newMaterial.m_iGLTextureIndex << endl;
 
 		m_vMats.push_back(newMaterial);
 
 	}
 
-	std::cout << "Number of Materials Loaded " << (int)m_vMats.size() << std::endl;
+	//std::cout << "Number of Materials Loaded " << (int)m_vMats.size() << std::endl;
 
 	return true;
 
@@ -350,10 +350,10 @@ bool COBJLoader::LoadOBJFile(const char* filename)
 	fopen_s(&theFile, filename, "rt");
 	if (!theFile)
 	{
-		std::cout << "Can't open the file" << std::endl;
+		//std::cout << "Can't open the file" << std::endl;
 		return false;
 	}
-	std::cout << "opening file " << filename << std::endl;
+	//std::cout << "opening file " << filename << std::endl;
 	while (!feof(theFile))
 	{
 		char firstChar = fgetc(theFile);
