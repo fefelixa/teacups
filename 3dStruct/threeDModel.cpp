@@ -329,7 +329,6 @@ void CThreeDModel::CalcCentrePoint()
 	m_obCentrePoint = Vector3d(minX + ((maxX - minX) / 2.0f),
 		minY + ((maxY - minY) / 2.0f),
 		minZ + ((maxZ - minZ) / 2.0f));
-	pos = m_obCentrePoint;
 }
 
 /*
@@ -401,7 +400,7 @@ bool CThreeDModel::isPointInAABB(Vector3d point) {
 	{
 		std::cout << " mins " << mins << std::endl;
 		std::cout << " maxs " << maxs << std::endl;
-		std::cout << "point " << mins << std::endl;
+		std::cout << "point " << point << std::endl;
 		return true;
 	}
 	return false;
@@ -619,7 +618,6 @@ void CThreeDModel::CentreOnZero()
 		m_pvVertices[count] = m_pvVertices[count] - m_obCentrePoint;
 	}
 	pos = Vector3d();
-	// commented out to allow reusing of original centre point.
 	m_obCentrePoint = Vector3d(0,0,0);
 
 }

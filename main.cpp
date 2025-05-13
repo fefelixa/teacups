@@ -76,8 +76,8 @@ bool LeftPressed = false;
 int screenWidth = 600, screenHeight = 600;
 
 // booleans to handle when the arrow keys are pressed or released.
-bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyW, keySpace, keyEsc, keyL, keyF; // keyboard keys
-bool pressedL, pressedF;
+bool keyLeft, keyRight, keyUp, keyDown, keyHome, keyEnd, keyQ, key0, key1, key2, key3, keyA, keyD, keyS, keyE,keyW, keySpace, keyEsc, keyL, keyF; // keyboard keys
+bool pressedL, pressedF, pressedE;
 bool modS, modC, modA;																											 // shift, ctrl, alt modifier keys
 
 float plate2radius;
@@ -252,8 +252,8 @@ void display()
 	float rand1, rand2;
 	for (int i = 0; i < 3; i++) {
 		modelMatrix = glm::mat4(1.0f);
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -tree[i].maxs.y / 2.0f, 0));
 		modelMatrix = glm::translate(modelMatrix, tree[i].pos.toGlm());
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -tree[i].mins.y / 2.0f, 0));
 		ModelViewMatrix = viewingMatrix * modelMatrix;
 		glUniformMatrix4fv(glGetUniformLocation(myShader->GetProgramObjID(), "ModelViewMatrix"), 1, GL_FALSE, &ModelViewMatrix[0][0]);
 
@@ -381,13 +381,15 @@ void init()
 		sprintf_s(filepath, sizeof(filepath), "MyModels/trees/toontree/tree%d.obj", i + 1);
 		
 		if (objLoader.LoadModel(filepath)) {
+			cout << "tree" << i << endl;
 			tree[i].ConstructModelFromOBJLoader(objLoader);
-			tree[i].InitVBO(myShader);
 			tree[i].CalcCentrePoint();
 			tree[i].CentreOnZero();
+			tree[i].CalcCentrePoint();
 			tree[i].CalcBoundingBox();
 			tree[i].pos = Vector3d((i-1)*75, -tree[i].mins.y, 75 * cos(i * PI));
 			tree[i].CalcBoundingBox();
+			tree[i].InitVBO(myShader);
 		}
 		else {
 			cout << "failed to load " << filepath << endl;
@@ -524,7 +526,9 @@ void keyPressDown(unsigned char key, int x, int y)
 	case 'l':
 		keyL = true;
 		break;
-
+	case 'e':
+		keyE = true;
+		break;
 	case 'f':
 		keyF = true;
 		break;
@@ -566,7 +570,10 @@ void keyPressUp(unsigned char key, int x, int y)
 	case 'w':
 		keyW = false;
 		break;
-
+	case'e':
+		keyE = false;
+		pressedE = false;
+		break;
 	case 'q':
 		keyQ = false;
 		break;
@@ -818,6 +825,15 @@ void processKeys()
 	if (keySpace)
 	{
 		moveCamera(0, camMoveSpeed, 0);
+	}
+	if (keyE && !pressedE) {
+		pressedE = true;
+		cout << "camera: ";
+		for (int i = 0; i < 3; i++) {
+
+			cout << freeCamPos[i] << " ";
+		}
+		cout << endl;
 	}
 }
 
