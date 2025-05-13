@@ -671,21 +671,25 @@ void moveCamera(float dx, float dy, float dz)
 		newCamPos += dz * freeCamFront;
 	}
 
-	if (newCamPos.y < 0.1f)
+	
+	bool collides = false;
+	glm::vec3 collCam = newCamPos + freeCamFront;
+
+	if (collCam.y < 0.1f)
 	{
 		newCamPos.y = 0.1f;
 	}
-	
-	bool collides = false;
-	float camDist = sqrt(newCamPos.x * newCamPos.x +
-		newCamPos.z * newCamPos.z);
-	if (camDist < plate2radius && newCamPos.y < 9.72f)
+
+	float camDist = sqrt(collCam.x * collCam.x +
+		collCam.z * collCam.z);
+
+	if (camDist < plate2radius && collCam.y < 9.72f)
 		collides = true;
-	if (lamppost.isPointInAABB(newCamPos)) {
+	if (lamppost.isPointInAABB(collCam)) {
 		collides = true;
 	}
 	for (int i = 0; i < 3; i++) {
-		if (tree[i].isPointInAABB(newCamPos)) {
+		if (tree[i].isPointInAABB(collCam)) {
 			cout << "tree" << i << endl;
 			collides = true;
 		}
